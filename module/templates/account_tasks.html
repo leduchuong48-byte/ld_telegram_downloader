@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>任务管理 - 账号 {{ account_id }}</title>
+  <style>
+    :root {
+      --bg: #161a2d;
+      --panel: #1f2742;
+      --panel-soft: #252f50;
+      --line: #2f3a63;
+      --text: #e8ecf8;
+      --muted: #a3afcf;
+      --primary: #2aabee;
+      --primary-strong: #1a8cc8;
+      --danger: #e25563;
+      --danger-strong: #be3947;
+      --warn: #f4c84b;
+      --ok: #36c98d;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42, 171, 238, 0.16), transparent 40%),
+        radial-gradient(circle at 90% 120%, rgba(54, 201, 141, 0.1), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container { width: min(1160px, 92vw); margin: 24px auto 36px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .title { margin: 0; font-size: clamp(20px, 2.8vw, 28px); }
+    .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.18s ease;
+      color: #fff;
+      background: var(--panel-soft);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), #238fc7); }
+    .btn-primary:hover { background: linear-gradient(135deg, #37b4f1, #2a9ed9); }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: var(--danger-strong); }
+    .btn-ghost { background: #2a3358; }
+    .btn-ghost:hover { background: #33406e; }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(37, 47, 80, 0.82), rgba(31, 39, 66, 0.95));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .tab {
+      border: 1px solid #3a4876;
+      background: #1a2340;
+      color: #d7e4ff;
+      border-radius: 999px;
+      padding: 8px 13px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: 0.18s ease;
+    }
+    .tab.active {
+      background: rgba(42, 171, 238, 0.22);
+      border-color: rgba(42, 171, 238, 0.8);
+      color: #ebf8ff;
+      font-weight: 700;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fadeIn 0.22s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field { margin-bottom: 12px; position: relative; }
+    .label { display: block; font-size: 13px; color: #c8d3ef; margin-bottom: 6px; }
+    .input {
+      width: 100%;
+      background: #111733;
+      border: 1px solid #3a4876;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+    .input:focus {
+      border-color: #49bdf3;
+      box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.2);
+    }
+
+    .chat-history-dropdown {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 40;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .chat-history-dropdown[hidden] { display: none; }
+    .chat-history-list {
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .chat-history-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .chat-history-item:hover,
+    .chat-history-item.active {
+      background: var(--panel-soft);
+    }
+    .chat-history-empty {
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .chat-history-footer {
+      display: flex;
+      justify-content: flex-end;
+      border-top: 1px solid rgba(83, 99, 146, 0.32);
+      padding: 6px 10px;
+    }
+    .chat-history-clear {
+      border: 0;
+      background: transparent;
+      color: #c8d3ef;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px 4px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .chat-history-clear:hover { color: #eef5ff; }
+
+    .filter-builder {
+      border: 1px solid rgba(83, 99, 146, 0.35);
+      border-radius: 12px;
+      background: rgba(17, 22, 39, 0.45);
+      padding: 10px;
+    }
+    .filter-builder-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .filter-builder-title {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0;
+    }
+    .filter-manual-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #c8d3ef;
+      cursor: pointer;
+      user-select: none;
+    }
+    .filter-rows { display: flex; flex-direction: column; gap: 8px; }
+    .filter-row {
+      border: 1px solid rgba(83, 99, 146, 0.38);
+      border-radius: 10px;
+      background: rgba(37, 47, 80, 0.5);
+      padding: 8px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 1.6fr) auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .filter-value-wrap {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      align-items: center;
+    }
+    .filter-value-wrap.size-mode {
+      grid-template-columns: minmax(0, 1fr) 100px;
+    }
+    .filter-value-wrap.type-mode {
+      grid-template-columns: 1fr;
+    }
+    .filter-media-type {
+      min-height: 86px;
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+    .filter-regex-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #c8d3ef;
+      font-size: 12px;
+      align-self: flex-start;
+      cursor: pointer;
+      user-select: none;
+    }
+    .filter-delete-btn {
+      min-height: 38px;
+      min-width: 38px;
+      padding: 0 10px;
+    }
+    .logic-toggle-wrap {
+      display: flex;
+      justify-content: center;
+      margin: -2px 0;
+    }
+    .logic-toggle {
+      display: inline-flex;
+      border: 1px solid #3a4876;
+      border-radius: 999px;
+      background: #1a2340;
+      overflow: hidden;
+    }
+    .logic-btn {
+      border: 0;
+      background: transparent;
+      color: #c3d2f7;
+      font-size: 12px;
+      line-height: 1;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: 0.16s ease;
+    }
+    .logic-btn.active {
+      background: rgba(42, 171, 238, 0.25);
+      color: #ecf8ff;
+      font-weight: 700;
+    }
+    .filter-actions {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 8px;
+    }
+    .filter-preview-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 10px 0 6px;
+    }
+    .filter-preview {
+      margin: 0;
+      border-radius: 10px;
+      border: 1px solid rgba(83, 99, 146, 0.38);
+      background: rgba(10, 14, 28, 0.8);
+      color: #d7e9ff;
+      font-family: "Consolas", "Monaco", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 8px 10px;
+      min-height: 52px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .filter-manual-wrap { margin-top: 8px; }
+    .filter-hidden-input { display: none; }
+
+    .section-title { margin: 0 0 12px; font-size: 18px; }
+    .split {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      border-bottom: 1px solid rgba(83, 99, 146, 0.32);
+      padding: 9px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th { color: #bed0f7; font-weight: 600; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 99px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-running { background: rgba(54, 201, 141, 0.16); color: var(--ok); border: 1px solid rgba(54, 201, 141, 0.45); }
+    .badge-stopped { background: rgba(226, 85, 99, 0.18); color: #ff98a2; border: 1px solid rgba(226, 85, 99, 0.42); }
+    .badge-pending { background: rgba(163, 175, 207, 0.14); color: var(--muted); border: 1px solid rgba(163, 175, 207, 0.3); }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 10px;
+      text-align: center;
+      border: 1px dashed rgba(163, 175, 207, 0.35);
+      border-radius: 10px;
+      background: rgba(17, 22, 39, 0.45);
+    }
+
+    .toast-wrap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      min-width: 220px;
+      max-width: 360px;
+      border-radius: 11px;
+      padding: 10px 12px;
+      border: 1px solid;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      animation: slideIn 0.18s ease;
+      background: rgba(17, 22, 39, 0.96);
+    }
+    .toast.ok { border-color: rgba(54, 201, 141, 0.5); color: #bff6dd; }
+    .toast.err { border-color: rgba(226, 85, 99, 0.55); color: #ffb2ba; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 13, 27, 0.46);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .loading-mask.show { display: flex; }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid rgba(233, 238, 249, 0.2);
+      border-top-color: #7ad2f9;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 980px) {
+      .split { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .container { width: 94vw; margin-top: 20px; }
+      .grid { grid-template-columns: 1fr; }
+      .nav-links { width: 100%; }
+      .nav-links .btn { flex: 1; min-width: 100px; }
+      table { display: block; overflow-x: auto; }
+      .filter-row { grid-template-columns: 1fr; }
+      .filter-delete-btn { width: 100%; }
+      .filter-value-wrap.size-mode { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <div>
+        <h1 class="title">任务管理面板</h1>
+        <p class="subtitle">账号 ID：{{ account_id }}</p>
+      </div>
+      <nav class="nav-links">
+        <a class="btn btn-primary" href="/account/{{ account_id }}/tasks">任务</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/downloads">下载</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/config">配置</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/chats">频道</a>
+        <a class="btn btn-ghost" href="/">仪表盘</a>
+      </nav>
+    </header>
+
+    <section class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="download" type="button">新建下载任务</button>
+        <button class="tab" data-tab="forward" type="button">新建转发任务</button>
+        <button class="tab" data-tab="listen" type="button">监听转发</button>
+        <button class="tab" data-tab="comments" type="button">转发到评论区</button>
+        <button class="tab" data-tab="tools" type="button">工具</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-download">
+        <form id="downloadForm" novalidate>
+          <div class="grid">
+            <div class="field">
+              <label class="label" for="downloadChat">频道链接 / ID</label>
+              <input id="downloadChat" class="input" type="text" required>
+            </div>
+            <div class="field">
+              <label class="label" for="downloadFilter">下载过滤器（可选）</label>
+              <div class="filter-builder" data-filter-builder data-target-input="downloadFilter" data-placeholder="id >= 1000"></div>
+              <input id="downloadFilter" class="input filter-hidden-input" type="text" aria-hidden="true">
+            </div>
+            <div class="field">
+              <label class="label" for="downloadStart">起始消息 ID</label>
+              <input id="downloadStart" class="input" type="number" value="0" min="0">
+            </div>
+            <div class="field">
+              <label class="label" for="downloadEnd">结束消息 ID</label>
+              <input id="downloadEnd" class="input" type="number" value="0" min="0">
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit">开始下载</button>
+        </form>
+        <hr style="border:0;border-top:1px solid rgba(83,99,146,.32);margin:16px 0;">
+        <form id="quickDownloadForm" novalidate>
+          <div class="field">
+            <label class="label" for="quickLink">快速下载（单条 t.me 链接）</label>
+            <input id="quickLink" class="input" type="text" placeholder="https://t.me/..." required>
+          </div>
+          <button class="btn btn-primary" type="submit">快速下载</button>
+        </form>
+      </div>
+
+      <div class="tab-panel" id="tab-forward">
+        <form id="forwardForm" novalidate>
+          <div class="grid">
+            <div class="field">
+              <label class="label" for="forwardFrom">源频道链接</label>
+              <input id="forwardFrom" class="input" type="text" required>
+            </div>
+            <div class="field">
+              <label class="label" for="forwardTo">目标频道链接</label>
+              <input id="forwardTo" class="input" type="text" required>
+            </div>
+            <div class="field">
+              <label class="label" for="forwardStart">起始 ID</label>
+              <input id="forwardStart" class="input" type="number" value="0" min="0">
+            </div>
+            <div class="field">
+              <label class="label" for="forwardEnd">结束 ID</label>
+              <input id="forwardEnd" class="input" type="number" value="0" min="0">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="forwardFilter">过滤器（可选）</label>
+            <div class="filter-builder" data-filter-builder data-target-input="forwardFilter"></div>
+            <input id="forwardFilter" class="input filter-hidden-input" type="text" aria-hidden="true">
+          </div>
+          <button class="btn btn-primary" type="submit">开始转发</button>
+        </form>
+      </div>
+
+      <div class="tab-panel" id="tab-listen">
+        <div class="split">
+          <form id="listenForm" novalidate>
+            <div class="field">
+              <label class="label" for="listenFrom">源频道链接</label>
+              <input id="listenFrom" class="input" type="text" required>
+            </div>
+            <div class="field">
+              <label class="label" for="listenTo">目标频道链接</label>
+              <input id="listenTo" class="input" type="text" required>
+            </div>
+            <div class="field">
+              <label class="label" for="listenFilter">过滤器（可选）</label>
+              <div class="filter-builder" data-filter-builder data-target-input="listenFilter"></div>
+              <input id="listenFilter" class="input filter-hidden-input" type="text" aria-hidden="true">
+            </div>
+            <button class="btn btn-primary" type="submit">启动监听转发</button>
+          </form>
+
+          <div>
+            <h3 class="section-title">活动监听列表</h3>
+            <div id="listenersWrap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-comments">
+        <form id="commentsForm" novalidate>
+          <div class="grid">
+            <div class="field">
+              <label class="label" for="commentsFrom">源频道链接</label>
+              <input id="commentsFrom" class="input" type="text" required>
+            </div>
+            <div class="field">
+              <label class="label" for="commentsTo">目标帖子链接（含消息 ID）</label>
+              <input id="commentsTo" class="input" type="text" required placeholder="https://t.me/c/xxx/123">
+            </div>
+            <div class="field">
+              <label class="label" for="commentsStart">起始 ID</label>
+              <input id="commentsStart" class="input" type="number" value="0" min="0">
+            </div>
+            <div class="field">
+              <label class="label" for="commentsEnd">结束 ID</label>
+              <input id="commentsEnd" class="input" type="number" value="0" min="0">
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="commentsFilter">过滤器（可选）</label>
+            <div class="filter-builder" data-filter-builder data-target-input="commentsFilter"></div>
+            <input id="commentsFilter" class="input filter-hidden-input" type="text" aria-hidden="true">
+          </div>
+          <button class="btn btn-primary" type="submit">转发到评论区</button>
+        </form>
+      </div>
+
+      <div class="tab-panel" id="tab-tools">
+        <div class="split">
+          <div>
+            <h3 class="section-title">下载过滤器</h3>
+            <form id="filterForm" novalidate>
+              <div class="field">
+                <label class="label" for="filterExpr">过滤表达式</label>
+                <div class="filter-builder" data-filter-builder data-target-input="filterExpr" data-placeholder="message_date >= 2024-01-01 00:00:00"></div>
+                <input id="filterExpr" class="input filter-hidden-input" type="text" aria-hidden="true">
+              </div>
+              <button class="btn btn-primary" type="submit">设置过滤器</button>
+            </form>
+
+            <hr style="border:0;border-top:1px solid rgba(83,99,146,.32);margin:18px 0;">
+
+            <h3 class="section-title">转发后清理</h3>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+              <span id="cleanupLabel" style="font-size:13px;color:var(--muted);">加载中...</span>
+              <button id="cleanupToggle" class="btn btn-ghost" type="button">切换</button>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="section-title">Forward 文件夹管理</h3>
+            <div style="margin-bottom:14px;">
+              <p id="forwardLimitInfo" style="font-size:13px;color:var(--muted);margin:0 0 10px;">加载中...</p>
+              <form id="forwardLimitForm" novalidate style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                <div class="field" style="margin:0;flex:1;min-width:120px;">
+                  <label class="label" for="forwardLimitSize">容量上限</label>
+                  <input id="forwardLimitSize" class="input" type="text" placeholder="20GB 或 off">
+                </div>
+                <button class="btn btn-primary" type="submit" style="margin-bottom:0;">设置</button>
+              </form>
+            </div>
+
+            <hr style="border:0;border-top:1px solid rgba(83,99,146,.32);margin:18px 0;">
+
+            <button id="forwardCleanBtn" class="btn btn-danger" type="button">清理 Forward 文件夹</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">活动任务</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>任务 ID</th>
+            <th>类型</th>
+            <th>频道</th>
+            <th>总数</th>
+            <th>已下载</th>
+            <th>失败</th>
+            <th>跳过</th>
+            <th>进度</th>
+            <th>速度</th>
+            <th>剩余</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tasksBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="loadingMask" class="loading-mask" aria-hidden="true">
+    <div class="spinner" aria-label="加载中"></div>
+  </div>
+  <div id="toastWrap" class="toast-wrap"></div>
+
+  <script>
+    (function () {
+      const accountId = {{ account_id | tojson }};
+      let tasks = {{ tasks | default([], true) | tojson }};
+      let listeners = {{ listen_forwards | default([], true) | tojson }};
+
+      const loadingMask = document.getElementById('loadingMask');
+      const toastWrap = document.getElementById('toastWrap');
+      const tasksBody = document.getElementById('tasksBody');
+      const listenersWrap = document.getElementById('listenersWrap');
+      let pendingCount = 0;
+      let loadingTimer = null;
+
+      function setLoading(show) {
+        if (show) {
+          pendingCount += 1;
+          if (!loadingTimer) {
+            loadingTimer = window.setTimeout(function () {
+              if (pendingCount > 0) {
+                loadingMask.classList.add('show');
+                loadingMask.setAttribute('aria-hidden', 'false');
+              }
+              loadingTimer = null;
+            }, 180);
+          }
+          return;
+        }
+
+        pendingCount = Math.max(0, pendingCount - 1);
+        if (pendingCount === 0) {
+          if (loadingTimer) {
+            window.clearTimeout(loadingTimer);
+            loadingTimer = null;
+          }
+          loadingMask.classList.remove('show');
+          loadingMask.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      function showToast(message, type) {
+        const node = document.createElement('div');
+        node.className = 'toast ' + (type === 'ok' ? 'ok' : 'err');
+        node.textContent = message;
+        toastWrap.appendChild(node);
+        window.setTimeout(function () {
+          node.style.opacity = '0';
+          node.style.transform = 'translateY(8px)';
+          window.setTimeout(function () { node.remove(); }, 180);
+        }, 2600);
+      }
+
+      async function requestJSON(url, options, withLoading) {
+        const useLoading = withLoading !== false;
+        if (useLoading) setLoading(true);
+        try {
+          const response = await fetch(url, options || {});
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (e) {
+            data = { ok: false, error: '服务返回格式异常。' };
+          }
+          if (!response.ok) {
+            data.ok = false;
+            if (!data.error) data.error = '请求失败，请稍后重试。';
+          }
+          return data;
+        } catch (error) {
+          return { ok: false, error: '网络异常，请稍后重试。' };
+        } finally {
+          if (useLoading) setLoading(false);
+        }
+      }
+
+      function renderListeners() {
+        if (!listeners || listeners.length === 0) {
+          listenersWrap.innerHTML = '<div class="empty">暂无活动监听任务</div>';
+          return;
+        }
+
+        listenersWrap.innerHTML = listeners.map(function (item) {
+          const running = !!item.running;
+          return (
+            '<div style="border:1px solid rgba(83,99,146,.32);border-radius:10px;padding:10px;margin-bottom:8px;background:rgba(17,22,39,.45);">' +
+              '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">' +
+                '<strong style="font-size:13px;word-break:break-all;">' + (item.from_chat || '-') + ' → ' + (item.to_chat || '-') + '</strong>' +
+                '<span class="badge ' + (running ? 'badge-running' : 'badge-stopped') + '">' + (running ? '运行中' : '已停止') + '</span>' +
+              '</div>' +
+              '<div style="margin-top:8px;color:var(--muted);font-size:12px;">转发数量：' + Number(item.forwarded || 0) + '</div>' +
+              '<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+                '<code style="color:#aac3f5;font-size:12px;word-break:break-all;">' + (item.key || '') + '</code>' +
+                '<button class="btn btn-danger" type="button" data-stop-listen="' + String(item.key || '').replace(/"/g, '&quot;') + '" ' + (running ? '' : 'disabled') + '>停止</button>' +
+              '</div>' +
+            '</div>'
+          );
+        }).join('');
+
+        listenersWrap.querySelectorAll('[data-stop-listen]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const key = this.dataset.stopListen;
+            if (!key) return;
+            const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/stop_listen', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: key })
+            });
+            if (!data.ok) {
+              showToast(data.error || '停止监听失败。', 'err');
+              return;
+            }
+            showToast('监听已停止。', 'ok');
+            await fetchListeners();
+          });
+        });
+      }
+
+      function formatSize(value) {
+        const num = Number(value || 0);
+        if (!num || num < 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let n = num;
+        let i = 0;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; }
+        return n.toFixed(i === 0 ? 0 : 2) + ' ' + units[i];
+      }
+
+      function formatETA(seconds) {
+        const s = Math.max(0, Math.round(seconds || 0));
+        if (s <= 0) return '--';
+        if (s < 60) return s + '秒';
+        if (s < 3600) return Math.floor(s / 60) + '分' + (s % 60) + '秒';
+        return Math.floor(s / 3600) + '时' + Math.floor((s % 3600) / 60) + '分';
+      }
+
+      function statusBadge(task) {
+        if (task.running) return '<span class="badge badge-running">运行中</span>';
+        if (task.stopped) return '<span class="badge badge-stopped">已停止</span>';
+        return '<span class="badge badge-pending">等待中</span>';
+      }
+
+      function renderTasks() {
+        if (!tasks || tasks.length === 0) {
+          tasksBody.innerHTML = '<tr><td colspan="12"><div class="empty">暂无任务</div></td></tr>';
+          return;
+        }
+
+        tasksBody.innerHTML = tasks.map(function (task) {
+          const canStop = !!task.running && !task.stopped;
+          const totalBytes = Number(task.total_bytes || 0);
+          const downBytes = Number(task.downloaded_bytes || 0);
+          const progressPct = totalBytes > 0 ? Math.min(100, (downBytes / totalBytes) * 100) : 0;
+          const speedDisplay = task.speed_display || (task.speed_bps ? formatSize(task.speed_bps) + '/s' : '--');
+          const etaDisplay = task.eta_seconds > 0 ? formatETA(task.eta_seconds) : '--';
+          const progressBar = totalBytes > 0
+            ? '<div style="display:flex;align-items:center;gap:6px;min-width:120px;">' +
+                '<div style="flex:1;height:6px;border-radius:3px;background:rgba(163,175,207,0.18);overflow:hidden;">' +
+                  '<div style="height:100%;border-radius:3px;background:linear-gradient(90deg,var(--primary),#5dc8f6);width:' + progressPct.toFixed(1) + '%;transition:width 0.3s;"></div>' +
+                '</div>' +
+                '<span style="font-size:11px;color:var(--muted);white-space:nowrap;">' + progressPct.toFixed(1) + '%</span>' +
+              '</div>'
+            : '<span style="color:var(--muted);">--</span>';
+          return (
+            '<tr>' +
+              '<td>' + Number(task.task_id || 0) + '</td>' +
+              '<td>' + (task.type || '-') + '</td>' +
+              '<td style="word-break:break-all;">' + (task.chat_id || task.chat || '-') + '</td>' +
+              '<td>' + Number(task.total || 0) + '</td>' +
+              '<td>' + Number(task.downloaded || 0) + '</td>' +
+              '<td>' + Number(task.failed || 0) + '</td>' +
+              '<td>' + Number(task.skipped || 0) + '</td>' +
+              '<td>' + progressBar + '</td>' +
+              '<td style="white-space:nowrap;">' + speedDisplay + '</td>' +
+              '<td style="white-space:nowrap;">' + etaDisplay + '</td>' +
+              '<td>' + statusBadge(task) + '</td>' +
+              '<td><button class="btn btn-danger" type="button" data-stop-task="' + Number(task.task_id || 0) + '" ' + (canStop ? '' : 'disabled') + '>停止</button></td>' +
+            '</tr>'
+          );
+        }).join('');
+
+        tasksBody.querySelectorAll('[data-stop-task]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const taskId = Number(this.dataset.stopTask || 0);
+            if (!taskId) return;
+            const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/stop', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ task_id: taskId })
+            });
+            if (!data.ok) {
+              showToast(data.error || '停止任务失败。', 'err');
+              return;
+            }
+            showToast('任务已停止。', 'ok');
+            await fetchTasks();
+          });
+        });
+      }
+
+      async function fetchTasks() {
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/list', { method: 'GET' }, false);
+        if (!data.ok && !Array.isArray(data)) {
+          return;
+        }
+        const list = Array.isArray(data) ? data : (Array.isArray(data.tasks) ? data.tasks : []);
+        tasks = list;
+        renderTasks();
+      }
+
+      async function fetchListeners() {
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/listen_forwards', { method: 'GET' }, false);
+        if (!data.ok && !Array.isArray(data)) {
+          renderListeners();
+          return;
+        }
+        listeners = Array.isArray(data) ? data : (Array.isArray(data.listen_forwards) ? data.listen_forwards : (Array.isArray(data.listeners) ? data.listeners : listeners));
+        renderListeners();
+      }
+
+      document.querySelectorAll('.tab').forEach(function (tabBtn) {
+        tabBtn.addEventListener('click', function () {
+          const name = tabBtn.dataset.tab;
+          document.querySelectorAll('.tab').forEach(function (el) { el.classList.toggle('active', el === tabBtn); });
+          document.querySelectorAll('.tab-panel').forEach(function (el) { el.classList.remove('active'); });
+          document.getElementById('tab-' + name).classList.add('active');
+        });
+      });
+
+      var FILTER_FIELDS = [
+        { label: '消息日期', value: 'message_date', type: 'datetime' },
+        { label: '消息ID', value: 'id', type: 'int' },
+        { label: '消息标题', value: 'caption', type: 'str' },
+        { label: '文件大小', value: 'file_size', type: 'size' },
+        { label: '视频宽度', value: 'media_width', type: 'int' },
+        { label: '视频高度', value: 'media_height', type: 'int' },
+        { label: '文件名', value: 'file_name', type: 'str' },
+        { label: '媒体时长(秒)', value: 'media_duration', type: 'int' },
+        { label: '媒体类型', value: 'media_type', type: 'media_type' },
+        { label: '文件扩展名', value: 'file_extension', type: 'str' },
+        { label: '发送者ID', value: 'sender_id', type: 'int' },
+        { label: '发送者名称', value: 'sender_name', type: 'str' },
+        { label: '回复消息ID', value: 'reply_to_message_id', type: 'int' },
+        { label: '话题ID', value: 'topic_id', type: 'int' }
+      ];
+      var MEDIA_TYPES = ['audio', 'document', 'photo', 'sticker', 'animation', 'video', 'voice', 'video_note'];
+      var SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+      var OPS_INT = ['>=', '<=', '>', '<', '==', '!='];
+      var OPS_STR = ['==', '!='];
+      var FIELD_MAP = {};
+      FILTER_FIELDS.forEach(function (item) { FIELD_MAP[item.value] = item; });
+
+      function escapeSingleQuotes(value) {
+        return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      }
+
+      function formatDateTime(raw) {
+        if (!raw) return '';
+        var normalized = String(raw).replace('T', ' ');
+        if (/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(normalized)) return normalized + ':00';
+        return normalized.replace(/\.\d+$/, '');
+      }
+
+      function createFilterBuilder(container, inputId) {
+        var hiddenInput = document.getElementById(inputId);
+        if (!hiddenInput) return null;
+
+        var existingValue = hiddenInput.value || '';
+        container.innerHTML = '';
+
+        var header = document.createElement('div');
+        header.className = 'filter-builder-header';
+
+        var title = document.createElement('p');
+        title.className = 'filter-builder-title';
+        title.textContent = '可视化过滤器构建器';
+
+        var manualToggleLabel = document.createElement('label');
+        manualToggleLabel.className = 'filter-manual-toggle';
+        var manualToggle = document.createElement('input');
+        manualToggle.type = 'checkbox';
+        manualToggle.setAttribute('aria-label', '切换手动编辑模式');
+        var manualToggleText = document.createElement('span');
+        manualToggleText.textContent = '手动编辑';
+        manualToggleLabel.appendChild(manualToggle);
+        manualToggleLabel.appendChild(manualToggleText);
+
+        header.appendChild(title);
+        header.appendChild(manualToggleLabel);
+
+        var rowsWrap = document.createElement('div');
+        rowsWrap.className = 'filter-rows';
+
+        var actions = document.createElement('div');
+        actions.className = 'filter-actions';
+        var addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn btn-ghost';
+        addBtn.textContent = '添加条件';
+        addBtn.setAttribute('aria-label', '添加过滤条件');
+        actions.appendChild(addBtn);
+
+        var previewLabel = document.createElement('div');
+        previewLabel.className = 'filter-preview-label';
+        previewLabel.textContent = '生成的表达式';
+
+        var preview = document.createElement('pre');
+        preview.className = 'filter-preview';
+        preview.setAttribute('aria-live', 'polite');
+
+        var manualWrap = document.createElement('div');
+        manualWrap.className = 'filter-manual-wrap';
+        manualWrap.style.display = 'none';
+        var manualInput = document.createElement('textarea');
+        manualInput.className = 'input';
+        manualInput.rows = 3;
+        manualInput.placeholder = container.dataset.placeholder || '请输入过滤表达式';
+        manualInput.setAttribute('aria-label', '手动编辑过滤表达式');
+        manualWrap.appendChild(manualInput);
+
+        container.appendChild(header);
+        container.appendChild(rowsWrap);
+        container.appendChild(actions);
+        container.appendChild(previewLabel);
+        container.appendChild(preview);
+        container.appendChild(manualWrap);
+
+        var state = { rows: [], connectors: [] };
+
+        function createOps(fieldType) {
+          var list = fieldType === 'int' || fieldType === 'datetime' || fieldType === 'size' ? OPS_INT : OPS_STR;
+          return list.map(function (op) { return '<option value="' + op + '">' + op + '</option>'; }).join('');
+        }
+
+        function createFieldOptions() {
+          return FILTER_FIELDS.map(function (f) {
+            return '<option value="' + f.value + '">' + f.label + '</option>';
+          }).join('');
+        }
+
+        function buildValueInput(row, field) {
+          row.valueWrap.innerHTML = '';
+          row.valueWrap.className = 'filter-value-wrap';
+          row.unitSelect = null;
+          row.regexCheckbox = null;
+
+          var valueInput;
+          if (field.type === 'datetime') {
+            valueInput = document.createElement('input');
+            valueInput.type = 'datetime-local';
+            valueInput.className = 'input';
+            valueInput.setAttribute('aria-label', '条件值');
+            if (row.value) {
+              valueInput.value = String(row.value).replace(' ', 'T').slice(0, 16);
+            }
+            row.valueWrap.appendChild(valueInput);
+          } else if (field.type === 'int') {
+            valueInput = document.createElement('input');
+            valueInput.type = 'number';
+            valueInput.step = '1';
+            valueInput.className = 'input';
+            valueInput.setAttribute('aria-label', '条件值');
+            if (row.value !== undefined && row.value !== null) valueInput.value = row.value;
+            row.valueWrap.appendChild(valueInput);
+          } else if (field.type === 'size') {
+            row.valueWrap.classList.add('size-mode');
+            valueInput = document.createElement('input');
+            valueInput.type = 'number';
+            valueInput.step = '1';
+            valueInput.min = '0';
+            valueInput.className = 'input';
+            valueInput.setAttribute('aria-label', '文件大小数值');
+            if (row.value !== undefined && row.value !== null) valueInput.value = row.value;
+            var unitSelect = document.createElement('select');
+            unitSelect.className = 'input';
+            unitSelect.setAttribute('aria-label', '文件大小单位');
+            unitSelect.innerHTML = SIZE_UNITS.map(function (unit) { return '<option value="' + unit + '">' + unit + '</option>'; }).join('');
+            unitSelect.value = row.unit || 'MB';
+            row.valueWrap.appendChild(valueInput);
+            row.valueWrap.appendChild(unitSelect);
+            row.unitSelect = unitSelect;
+            unitSelect.addEventListener('change', function () {
+              row.unit = unitSelect.value;
+              updateExpression();
+            });
+          } else if (field.type === 'media_type') {
+            row.valueWrap.classList.add('type-mode');
+            valueInput = document.createElement('select');
+            valueInput.className = 'input filter-media-type';
+            valueInput.multiple = true;
+            valueInput.setAttribute('aria-label', '媒体类型，可多选');
+            valueInput.innerHTML = MEDIA_TYPES.map(function (type) { return '<option value="' + type + '">' + type + '</option>'; }).join('');
+            if (Array.isArray(row.mediaValues)) {
+              Array.prototype.slice.call(valueInput.options).forEach(function (opt) {
+                opt.selected = row.mediaValues.indexOf(opt.value) !== -1;
+              });
+            }
+            row.valueWrap.appendChild(valueInput);
+          } else {
+            valueInput = document.createElement('input');
+            valueInput.type = 'text';
+            valueInput.className = 'input';
+            valueInput.setAttribute('aria-label', '条件值');
+            valueInput.value = row.value || '';
+            row.valueWrap.appendChild(valueInput);
+            var regexLabel = document.createElement('label');
+            regexLabel.className = 'filter-regex-toggle';
+            var regexCheckbox = document.createElement('input');
+            regexCheckbox.type = 'checkbox';
+            regexCheckbox.setAttribute('aria-label', '正则匹配');
+            regexCheckbox.checked = !!row.regex;
+            regexLabel.appendChild(regexCheckbox);
+            regexLabel.appendChild(document.createTextNode('正则匹配'));
+            row.valueWrap.appendChild(regexLabel);
+            row.regexCheckbox = regexCheckbox;
+            regexCheckbox.addEventListener('change', function () {
+              row.regex = regexCheckbox.checked;
+              updateExpression();
+            });
+          }
+
+          row.valueInput = valueInput;
+          row.valueInput.addEventListener('input', function () {
+            if (field.type === 'media_type') {
+              row.mediaValues = Array.prototype.slice.call(row.valueInput.selectedOptions || []).map(function (opt) { return opt.value; });
+            } else if (field.type === 'datetime') {
+              row.value = formatDateTime(row.valueInput.value);
+            } else {
+              row.value = row.valueInput.value;
+            }
+            updateExpression();
+          });
+          row.valueInput.addEventListener('change', function () {
+            if (field.type === 'media_type') {
+              row.mediaValues = Array.prototype.slice.call(row.valueInput.selectedOptions || []).map(function (opt) { return opt.value; });
+            } else if (field.type === 'datetime') {
+              row.value = formatDateTime(row.valueInput.value);
+            } else {
+              row.value = row.valueInput.value;
+            }
+            updateExpression();
+          });
+        }
+
+        function getRowExpression(row) {
+          if (!row || !row.fieldSelect) return '';
+          var fieldName = row.fieldSelect.value;
+          var field = FIELD_MAP[fieldName];
+          if (!field) return '';
+
+          var op = row.opSelect.value;
+          if (field.type === 'datetime') {
+            var dt = formatDateTime(row.valueInput.value);
+            if (!dt) return '';
+            return fieldName + ' ' + op + ' ' + dt;
+          }
+          if (field.type === 'int') {
+            var numVal = String(row.valueInput.value || '').trim();
+            if (!numVal) return '';
+            return fieldName + ' ' + op + ' ' + numVal;
+          }
+          if (field.type === 'size') {
+            var sizeNum = String(row.valueInput.value || '').trim();
+            if (!sizeNum) return '';
+            var unit = row.unitSelect ? row.unitSelect.value : 'B';
+            return fieldName + ' ' + op + ' ' + sizeNum + unit;
+          }
+          if (field.type === 'media_type') {
+            var selected = Array.prototype.slice.call(row.valueInput.selectedOptions || []).map(function (opt) { return opt.value; });
+            if (!selected.length) return '';
+            if (selected.length === 1) {
+              return fieldName + ' ' + op + " '" + escapeSingleQuotes(selected[0]) + "'";
+            }
+            return fieldName + ' ' + op + " r'(" + selected.map(escapeSingleQuotes).join('|') + ")'";
+          }
+
+          var textVal = String(row.valueInput.value || '').trim();
+          if (!textVal) return '';
+          if (row.regexCheckbox && row.regexCheckbox.checked) {
+            return fieldName + ' ' + op + " r'" + escapeSingleQuotes(textVal) + "'";
+          }
+          return fieldName + ' ' + op + " '" + escapeSingleQuotes(textVal) + "'";
+        }
+
+        function composeExpression(conditions, connectors) {
+          if (!conditions.length) return '';
+          if (conditions.length === 1) return conditions[0];
+
+          var groups = [];
+          var current = [conditions[0]];
+          for (var i = 0; i < connectors.length; i += 1) {
+            if (connectors[i] === 'or') {
+              current.push(conditions[i + 1]);
+            } else {
+              groups.push(current);
+              current = [conditions[i + 1]];
+            }
+          }
+          groups.push(current);
+
+          return groups.map(function (group) {
+            var chunk = group.join(' or ');
+            if (group.length > 1 && groups.length > 1) {
+              return '(' + chunk + ')';
+            }
+            return chunk;
+          }).join(' and ');
+        }
+
+        function updateExpression() {
+          if (manualToggle.checked) {
+            hiddenInput.value = manualInput.value.trim();
+            preview.textContent = hiddenInput.value || '（空）';
+            return;
+          }
+
+          var conditions = [];
+          var validConnectors = [];
+          state.rows.forEach(function (row, index) {
+            var expr = getRowExpression(row);
+            if (!expr) return;
+            conditions.push(expr);
+            if (conditions.length > 1) {
+              var prevIndex = index - 1;
+              while (prevIndex >= 0) {
+                if (getRowExpression(state.rows[prevIndex])) {
+                  break;
+                }
+                prevIndex -= 1;
+              }
+              validConnectors.push(prevIndex >= 0 ? (state.connectors[prevIndex] || 'and') : 'and');
+            }
+          });
+
+          var exprText = composeExpression(conditions, validConnectors);
+          hiddenInput.value = exprText;
+          preview.textContent = exprText || '（空）';
+        }
+
+        function createLogicToggle(index) {
+          var wrap = document.createElement('div');
+          wrap.className = 'logic-toggle-wrap';
+
+          var toggle = document.createElement('div');
+          toggle.className = 'logic-toggle';
+          toggle.setAttribute('role', 'group');
+          toggle.setAttribute('aria-label', '逻辑连接符切换');
+
+          var andBtn = document.createElement('button');
+          andBtn.type = 'button';
+          andBtn.className = 'logic-btn active';
+          andBtn.textContent = 'AND';
+          andBtn.setAttribute('aria-pressed', 'true');
+
+          var orBtn = document.createElement('button');
+          orBtn.type = 'button';
+          orBtn.className = 'logic-btn';
+          orBtn.textContent = 'OR';
+          orBtn.setAttribute('aria-pressed', 'false');
+
+          function setLogic(type) {
+            state.connectors[index] = type;
+            var andActive = type === 'and';
+            andBtn.classList.toggle('active', andActive);
+            orBtn.classList.toggle('active', !andActive);
+            andBtn.setAttribute('aria-pressed', andActive ? 'true' : 'false');
+            orBtn.setAttribute('aria-pressed', andActive ? 'false' : 'true');
+            updateExpression();
+          }
+
+          andBtn.addEventListener('click', function () { setLogic('and'); });
+          orBtn.addEventListener('click', function () { setLogic('or'); });
+
+          toggle.appendChild(andBtn);
+          toggle.appendChild(orBtn);
+          wrap.appendChild(toggle);
+          return wrap;
+        }
+
+        function rerenderRows() {
+          rowsWrap.innerHTML = '';
+
+          state.rows.forEach(function (row, index) {
+            if (index > 0) {
+              rowsWrap.appendChild(createLogicToggle(index - 1));
+            }
+
+            var rowEl = document.createElement('div');
+            rowEl.className = 'filter-row';
+
+            var fieldSelect = document.createElement('select');
+            fieldSelect.className = 'input';
+            fieldSelect.setAttribute('aria-label', '筛选字段');
+            fieldSelect.innerHTML = createFieldOptions();
+            fieldSelect.value = row.field || FILTER_FIELDS[0].value;
+
+            var opSelect = document.createElement('select');
+            opSelect.className = 'input';
+            opSelect.setAttribute('aria-label', '比较操作符');
+
+            var valueWrap = document.createElement('div');
+            valueWrap.className = 'filter-value-wrap';
+
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-danger filter-delete-btn';
+            delBtn.textContent = '删';
+            delBtn.setAttribute('aria-label', '删除该条件');
+
+            row.fieldSelect = fieldSelect;
+            row.opSelect = opSelect;
+            row.valueWrap = valueWrap;
+            rowEl.appendChild(fieldSelect);
+            rowEl.appendChild(opSelect);
+            rowEl.appendChild(valueWrap);
+            rowEl.appendChild(delBtn);
+
+            function syncOpsAndValue() {
+              var field = FIELD_MAP[fieldSelect.value] || FILTER_FIELDS[0];
+              row.field = field.value;
+              var currentOp = opSelect.value;
+              opSelect.innerHTML = createOps(field.type);
+              if (row.op && opSelect.querySelector('option[value="' + row.op + '"]')) {
+                opSelect.value = row.op;
+              } else if (currentOp && opSelect.querySelector('option[value="' + currentOp + '"]')) {
+                opSelect.value = currentOp;
+              }
+              row.op = opSelect.value;
+              buildValueInput(row, field);
+              updateExpression();
+            }
+
+            fieldSelect.addEventListener('change', function () {
+              row.value = '';
+              row.mediaValues = [];
+              row.regex = false;
+              row.unit = 'MB';
+              syncOpsAndValue();
+            });
+            opSelect.addEventListener('change', function () {
+              row.op = opSelect.value;
+              updateExpression();
+            });
+            delBtn.addEventListener('click', function () {
+              if (state.rows.length === 1) {
+                state.rows[0] = { field: FILTER_FIELDS[0].value };
+              } else {
+                state.rows.splice(index, 1);
+                if (index > 0) {
+                  state.connectors.splice(index - 1, 1);
+                } else {
+                  state.connectors.splice(0, 1);
+                }
+              }
+              rerenderRows();
+              updateExpression();
+            });
+
+            syncOpsAndValue();
+            rowsWrap.appendChild(rowEl);
+          });
+        }
+
+        addBtn.addEventListener('click', function () {
+          if (state.rows.length > 0) state.connectors.push('and');
+          state.rows.push({ field: FILTER_FIELDS[0].value });
+          rerenderRows();
+          updateExpression();
+        });
+
+        manualToggle.addEventListener('change', function () {
+          var isManual = manualToggle.checked;
+          rowsWrap.style.display = isManual ? 'none' : '';
+          actions.style.display = isManual ? 'none' : '';
+          manualWrap.style.display = isManual ? 'block' : 'none';
+          if (isManual) {
+            manualInput.value = hiddenInput.value || '';
+          }
+          updateExpression();
+        });
+
+        manualInput.addEventListener('input', updateExpression);
+
+        state.rows.push({ field: FILTER_FIELDS[0].value });
+        rerenderRows();
+
+        if (existingValue.trim()) {
+          manualToggle.checked = true;
+          rowsWrap.style.display = 'none';
+          actions.style.display = 'none';
+          manualWrap.style.display = 'block';
+          manualInput.value = existingValue;
+        }
+        updateExpression();
+        return { update: updateExpression };
+      }
+
+      var filterBuilders = [];
+      document.querySelectorAll('[data-filter-builder]').forEach(function (builderEl) {
+        var inputId = builderEl.dataset.targetInput;
+        var instance = createFilterBuilder(builderEl, inputId);
+        if (instance) filterBuilders.push(instance);
+      });
+
+      var chatHistoryKey = 'tg_channel_history_' + String(accountId);
+      var chatHistoryMax = 30;
+      var chatHistoryResolving = {};
+      var activeChatHistory = null;
+
+      function getChatHistory() {
+        try {
+          var parsed = JSON.parse(localStorage.getItem(chatHistoryKey) || '[]');
+          if (!Array.isArray(parsed)) return [];
+          return parsed.filter(function (item) {
+            return item && typeof item.value === 'string' && item.value;
+          }).map(function (item) {
+            return {
+              value: item.value,
+              label: typeof item.label === 'string' && item.label ? item.label : item.value,
+              ts: Number(item.ts || 0)
+            };
+          }).sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, chatHistoryMax);
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function setChatHistory(list) {
+        localStorage.setItem(chatHistoryKey, JSON.stringify((list || []).slice(0, chatHistoryMax)));
+      }
+
+      function fuzzyMatchText(text, query) {
+        var source = String(text || '').toLowerCase();
+        var keyword = String(query || '').toLowerCase().trim();
+        if (!keyword) return true;
+        if (source.indexOf(keyword) !== -1) return true;
+        var i = 0;
+        for (var j = 0; j < source.length && i < keyword.length; j += 1) {
+          if (source[j] === keyword[i]) i += 1;
+        }
+        return i === keyword.length;
+      }
+
+      function filterChatHistoryEntries(entries, keyword) {
+        if (!keyword) return entries;
+        return entries.filter(function (entry) {
+          return fuzzyMatchText(entry.value, keyword) || fuzzyMatchText(entry.label, keyword);
+        });
+      }
+
+      function escapeHTML(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function updateChatHistoryLabel(value, label) {
+        if (!value || !label) return;
+        var list = getChatHistory();
+        var changed = false;
+        list.forEach(function (entry) {
+          if (entry.value === value && entry.label !== label) {
+            entry.label = label;
+            changed = true;
+          }
+        });
+        if (changed) {
+          setChatHistory(list);
+        }
+      }
+
+      function resolveChatHistoryLabel(value) {
+        if (!value || chatHistoryResolving[value]) return;
+        chatHistoryResolving[value] = true;
+        requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/get_info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat: value })
+        }, false).then(function (data) {
+          if (!data || !data.ok || !data.info) return;
+          var title = data.info.title;
+          var id = data.info.id;
+          if (!title || id === undefined || id === null) return;
+          updateChatHistoryLabel(value, String(title) + ' (' + String(id) + ')');
+          if (activeChatHistory && typeof activeChatHistory.refresh === 'function') {
+            activeChatHistory.refresh();
+          }
+        }).catch(function () {
+        }).finally(function () {
+          delete chatHistoryResolving[value];
+        });
+      }
+
+      function clearChatHistory() {
+        localStorage.removeItem(chatHistoryKey);
+        Object.keys(chatHistoryResolving).forEach(function (key) {
+          delete chatHistoryResolving[key];
+        });
+      }
+
+      function closeActiveChatHistory() {
+        if (activeChatHistory && typeof activeChatHistory.close === 'function') {
+          activeChatHistory.close();
+        }
+      }
+
+      function createChatHistory(inputElement) {
+        if (!inputElement || !inputElement.parentElement) return null;
+
+        var wrap = inputElement.parentElement;
+        var dropdown = document.createElement('div');
+        dropdown.className = 'chat-history-dropdown';
+        dropdown.hidden = true;
+        dropdown.innerHTML = '<div class="chat-history-list"></div><div class="chat-history-footer"><button type="button" class="chat-history-clear">清除历史记录</button></div>';
+        wrap.appendChild(dropdown);
+
+        var listEl = dropdown.querySelector('.chat-history-list');
+        var clearBtn = dropdown.querySelector('.chat-history-clear');
+        var visibleEntries = [];
+        var activeIndex = -1;
+
+        function setInputValue(value) {
+          inputElement.value = value;
+          inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function render(keyword) {
+          var entries = filterChatHistoryEntries(getChatHistory(), keyword || '');
+          visibleEntries = entries;
+          if (!entries.length) {
+            activeIndex = -1;
+            listEl.innerHTML = '<div class="chat-history-empty">暂无历史记录</div>';
+            return;
+          }
+          if (activeIndex >= entries.length) activeIndex = entries.length - 1;
+          listEl.innerHTML = entries.map(function (entry, index) {
+            var cls = 'chat-history-item' + (index === activeIndex ? ' active' : '');
+            return '<button type="button" class="' + cls + '" data-history-index="' + index + '" title="' + escapeHTML(entry.value) + '">' + escapeHTML(entry.label) + '</button>';
+          }).join('');
+        }
+
+        function open() {
+          render(inputElement.value.trim());
+          if (!visibleEntries.length) {
+            dropdown.hidden = true;
+            return;
+          }
+          closeActiveChatHistory();
+          activeChatHistory = api;
+          dropdown.hidden = false;
+        }
+
+        function close() {
+          dropdown.hidden = true;
+          activeIndex = -1;
+          if (activeChatHistory === api) {
+            activeChatHistory = null;
+          }
+        }
+
+        function selectIndex(index) {
+          var item = visibleEntries[index];
+          if (!item) return;
+          setInputValue(item.value);
+          close();
+        }
+
+        function moveActive(step) {
+          if (dropdown.hidden) {
+            open();
+            if (dropdown.hidden || !visibleEntries.length) return;
+          }
+          if (!visibleEntries.length) return;
+          if (activeIndex < 0) {
+            activeIndex = step > 0 ? 0 : visibleEntries.length - 1;
+          } else {
+            activeIndex = (activeIndex + step + visibleEntries.length) % visibleEntries.length;
+          }
+          render(inputElement.value.trim());
+        }
+
+        function save(value, label) {
+          var raw = String(value || '').trim();
+          if (!raw) return;
+          var list = getChatHistory().filter(function (entry) { return entry.value !== raw; });
+          list.unshift({ value: raw, label: label || raw, ts: Date.now() });
+          setChatHistory(list);
+          resolveChatHistoryLabel(raw);
+          if (activeChatHistory === api && !dropdown.hidden) {
+            render(inputElement.value.trim());
+          }
+        }
+
+        function onInput() {
+          if (dropdown.hidden) return;
+          activeIndex = -1;
+          render(inputElement.value.trim());
+          dropdown.hidden = !visibleEntries.length;
+          if (!visibleEntries.length && activeChatHistory === api) {
+            activeChatHistory = null;
+          }
+        }
+
+        function onKeydown(event) {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            moveActive(1);
+            return;
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            moveActive(-1);
+            return;
+          }
+          if (event.key === 'Enter' && !dropdown.hidden && activeIndex >= 0) {
+            event.preventDefault();
+            selectIndex(activeIndex);
+            return;
+          }
+          if (event.key === 'Escape') {
+            close();
+            return;
+          }
+          if (event.key === 'Tab') {
+            close();
+          }
+        }
+
+        var onDocClick = function (event) {
+          if (dropdown.hidden) return;
+          if (!wrap.contains(event.target)) {
+            close();
+          }
+        };
+
+        inputElement.addEventListener('focus', open);
+        inputElement.addEventListener('input', onInput);
+        inputElement.addEventListener('keydown', onKeydown);
+        dropdown.addEventListener('mousedown', function (event) { event.preventDefault(); });
+        dropdown.addEventListener('click', function (event) {
+          var clear = event.target.closest('.chat-history-clear');
+          if (clear) {
+            clearChatHistory();
+            close();
+            showToast('历史记录已清除', 'ok');
+            return;
+          }
+          var item = event.target.closest('[data-history-index]');
+          if (!item) return;
+          selectIndex(Number(item.dataset.historyIndex || -1));
+        });
+        document.addEventListener('mousedown', onDocClick);
+
+        clearBtn.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            close();
+          }
+        });
+
+        var api = {
+          save: save,
+          close: close,
+          refresh: function () {
+            if (!dropdown.hidden) render(inputElement.value.trim());
+          },
+          destroy: function () {
+            inputElement.removeEventListener('focus', open);
+            inputElement.removeEventListener('input', onInput);
+            inputElement.removeEventListener('keydown', onKeydown);
+            document.removeEventListener('mousedown', onDocClick);
+            dropdown.remove();
+            if (activeChatHistory === api) activeChatHistory = null;
+          }
+        };
+        return api;
+      }
+
+      var historyInputs = ['downloadChat', 'quickLink', 'forwardFrom', 'forwardTo', 'listenFrom', 'listenTo', 'commentsFrom', 'commentsTo'];
+      var chatHistoryHandlers = {};
+      historyInputs.forEach(function (id) {
+        var input = document.getElementById(id);
+        if (!input) return;
+        var history = createChatHistory(input);
+        if (history) chatHistoryHandlers[id] = history;
+      });
+
+      document.getElementById('downloadForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const payload = {
+          chat_id: document.getElementById('downloadChat').value.trim(),
+          start_message_id: Number(document.getElementById('downloadStart').value || 0),
+          end_message_id: Number(document.getElementById('downloadEnd').value || 0),
+          download_filter: document.getElementById('downloadFilter').value.trim()
+        };
+        if (!payload.chat_id) {
+          showToast('请填写频道链接或 ID。', 'err');
+          return;
+        }
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!data.ok) {
+          showToast(data.error || '创建下载任务失败。', 'err');
+          return;
+        }
+        showToast('下载任务已创建。', 'ok');
+        if (chatHistoryHandlers.downloadChat) chatHistoryHandlers.downloadChat.save(payload.chat_id);
+        await fetchTasks();
+      });
+
+      document.getElementById('quickDownloadForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const link = document.getElementById('quickLink').value.trim();
+        if (!link) {
+          showToast('请填写 t.me 链接。', 'err');
+          return;
+        }
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/download_link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ link: link })
+        });
+        if (!data.ok) {
+          showToast(data.error || '快速下载任务创建失败。', 'err');
+          return;
+        }
+        showToast('快速下载任务已创建。', 'ok');
+        if (chatHistoryHandlers.quickLink) chatHistoryHandlers.quickLink.save(link);
+        await fetchTasks();
+      });
+
+      document.getElementById('forwardForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const payload = {
+          from_chat: document.getElementById('forwardFrom').value.trim(),
+          to_chat: document.getElementById('forwardTo').value.trim(),
+          start_id: Number(document.getElementById('forwardStart').value || 0),
+          end_id: Number(document.getElementById('forwardEnd').value || 0),
+          filter: document.getElementById('forwardFilter').value.trim()
+        };
+        if (!payload.from_chat || !payload.to_chat) {
+          showToast('请填写源频道和目标频道。', 'err');
+          return;
+        }
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/forward', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!data.ok) {
+          showToast(data.error || '创建转发任务失败。', 'err');
+          return;
+        }
+        showToast('转发任务已创建。', 'ok');
+        if (chatHistoryHandlers.forwardFrom) chatHistoryHandlers.forwardFrom.save(payload.from_chat);
+        if (chatHistoryHandlers.forwardTo) chatHistoryHandlers.forwardTo.save(payload.to_chat);
+        await fetchTasks();
+      });
+
+      document.getElementById('listenForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const payload = {
+          from_chat: document.getElementById('listenFrom').value.trim(),
+          to_chat: document.getElementById('listenTo').value.trim(),
+          filter: document.getElementById('listenFilter').value.trim()
+        };
+        if (!payload.from_chat || !payload.to_chat) {
+          showToast('请填写源频道和目标频道。', 'err');
+          return;
+        }
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/listen_forward', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!data.ok) {
+          showToast(data.error || '启动监听转发失败。', 'err');
+          return;
+        }
+        showToast('监听转发已启动。', 'ok');
+        if (chatHistoryHandlers.listenFrom) chatHistoryHandlers.listenFrom.save(payload.from_chat);
+        if (chatHistoryHandlers.listenTo) chatHistoryHandlers.listenTo.save(payload.to_chat);
+        await fetchListeners();
+      });
+
+      renderTasks();
+      renderListeners();
+      fetchTasks();
+      fetchListeners();
+      window.setInterval(fetchTasks, 3000);
+      window.setInterval(fetchListeners, 3000);
+
+      // ── forward to comments ───────────────────────────────────
+      document.getElementById('commentsForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const payload = {
+          from_chat: document.getElementById('commentsFrom').value.trim(),
+          to_chat: document.getElementById('commentsTo').value.trim(),
+          start_id: Number(document.getElementById('commentsStart').value || 0),
+          end_id: Number(document.getElementById('commentsEnd').value || 0),
+          filter: document.getElementById('commentsFilter').value.trim()
+        };
+        if (!payload.from_chat || !payload.to_chat) {
+          showToast('请填写源频道和目标帖子链接。', 'err');
+          return;
+        }
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tasks/forward_to_comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!data.ok) {
+          showToast(data.error || '转发到评论区失败。', 'err');
+          return;
+        }
+        showToast('转发到评论区任务已创建。', 'ok');
+        if (chatHistoryHandlers.commentsFrom) chatHistoryHandlers.commentsFrom.save(payload.from_chat);
+        if (chatHistoryHandlers.commentsTo) chatHistoryHandlers.commentsTo.save(payload.to_chat);
+        await fetchTasks();
+      });
+
+      // ── tools: add filter ─────────────────────────────────────
+      document.getElementById('filterForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const expr = document.getElementById('filterExpr').value.trim();
+        if (!expr) {
+          showToast('请输入过滤表达式。', 'err');
+          return;
+        }
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/add_filter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filter: expr })
+        });
+        if (!data.ok) {
+          showToast(data.error || '设置过滤器失败。', 'err');
+          return;
+        }
+        showToast('过滤器已设置：' + (data.filter || expr), 'ok');
+      });
+
+      // ── tools: cleanup toggle ─────────────────────────────────
+      var cleanupLabel = document.getElementById('cleanupLabel');
+      var cleanupToggle = document.getElementById('cleanupToggle');
+
+      async function fetchCleanupStatus() {
+        var data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/cleanup_status', { method: 'GET' }, false);
+        if (data.ok) {
+          var on = !!data.cleanup_enabled;
+          cleanupLabel.textContent = '当前状态：' + (on ? '开启（转发/上传后删除本地文件）' : '关闭');
+          cleanupLabel.style.color = on ? 'var(--ok)' : 'var(--muted)';
+          cleanupToggle.textContent = on ? '关闭清理' : '开启清理';
+        }
+      }
+
+      cleanupToggle.addEventListener('click', async function () {
+        var current = cleanupLabel.textContent.indexOf('开启') !== -1;
+        var data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: !current })
+        });
+        if (!data.ok) {
+          showToast(data.error || '切换失败。', 'err');
+          return;
+        }
+        showToast(!current ? '已开启转发后清理。' : '已关闭转发后清理。', 'ok');
+        await fetchCleanupStatus();
+      });
+
+      // ── tools: forward limit ──────────────────────────────────
+      var forwardLimitInfo = document.getElementById('forwardLimitInfo');
+
+      async function fetchForwardLimitStatus() {
+        var data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/forward_limit_status', { method: 'GET' }, false);
+        if (data.ok) {
+          forwardLimitInfo.textContent = '容量上限：' + (data.limit_display || 'off') + '，当前占用：' + (data.current_size_display || '0 B');
+        }
+      }
+
+      document.getElementById('forwardLimitForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        var size = document.getElementById('forwardLimitSize').value.trim();
+        if (!size) {
+          showToast('请输入容量上限（如 20GB）或 off。', 'err');
+          return;
+        }
+        var data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/forward_limit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ size: size })
+        });
+        if (!data.ok) {
+          showToast(data.error || '设置失败。', 'err');
+          return;
+        }
+        showToast('Forward 上限已设置为 ' + (data.limit_display || 'off') + '。', 'ok');
+        await fetchForwardLimitStatus();
+      });
+
+      // ── tools: forward clean ──────────────────────────────────
+      document.getElementById('forwardCleanBtn').addEventListener('click', async function () {
+        if (!window.confirm('确认清理 Forward 文件夹？此操作不可撤销。')) return;
+        var data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/forward_clean', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        if (!data.ok) {
+          showToast(data.error || '清理失败。', 'err');
+          return;
+        }
+        showToast('清理完成，释放 ' + (data.freed_display || '0 B') + '。', 'ok');
+        await fetchForwardLimitStatus();
+      });
+
+      // ── init tools status ─────────────────────────────────────
+      fetchCleanupStatus();
+      fetchForwardLimitStatus();
+    })();
+  </script>
+</body>
+</html>

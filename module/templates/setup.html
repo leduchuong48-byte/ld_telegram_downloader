@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>账号认证设置</title>
+  <style>
+    :root {
+      --bg: #171b2f;
+      --panel: #1f2742;
+      --panel-soft: #252f50;
+      --line: #33406a;
+      --text: #e9eef9;
+      --muted: #a7b2d2;
+      --primary: #2aabee;
+      --primary-strong: #1e8ec9;
+      --danger: #e25563;
+      --ok: #39cb91;
+      --radius: 14px;
+      --shadow: 0 20px 40px rgba(0, 0, 0, 0.36);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 20% -10%, rgba(42, 171, 238, 0.15), transparent 38%),
+        radial-gradient(circle at 85% 115%, rgba(57, 203, 145, 0.08), transparent 44%),
+        var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 26px 14px;
+    }
+
+    .wrap {
+      width: min(760px, 100%);
+      background: linear-gradient(180deg, rgba(37, 47, 80, 0.93), rgba(31, 39, 66, 0.98));
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .head {
+      padding: 20px 20px 14px;
+      border-bottom: 1px solid rgba(109, 127, 180, 0.3);
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 700;
+    }
+
+    .desc {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .step-track {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .step-pill {
+      text-align: center;
+      font-size: 12px;
+      color: #bfd0f3;
+      background: rgba(17, 23, 47, 0.62);
+      border: 1px solid rgba(102, 124, 183, 0.4);
+      padding: 7px 6px;
+      border-radius: 999px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .step-pill.active {
+      background: rgba(42, 171, 238, 0.22);
+      border-color: rgba(42, 171, 238, 0.8);
+      color: #eaf8ff;
+      font-weight: 700;
+    }
+
+    .body {
+      padding: 20px;
+      position: relative;
+      min-height: 350px;
+    }
+
+    .error-box {
+      display: none;
+      margin-bottom: 14px;
+      border-radius: 11px;
+      padding: 11px 13px;
+      border: 1px solid rgba(226, 85, 99, 0.45);
+      background: rgba(226, 85, 99, 0.16);
+      color: #ffb2ba;
+      font-size: 13px;
+    }
+
+    .panel {
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .panel.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-title {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .panel-text {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .field { margin-bottom: 14px; }
+    .label {
+      display: block;
+      font-size: 13px;
+      color: #c8d4ef;
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #3c4b79;
+      border-radius: 10px;
+      background: #101731;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .input:focus {
+      border-color: #4abcf3;
+      box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.2);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      min-height: 40px;
+      padding: 10px 15px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      color: #fff;
+      transition: 0.18s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-strong)); }
+    .btn-ghost { background: #313f69; }
+    .link-skip {
+      color: #8dd7fb;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .link-skip:hover { text-decoration: underline; }
+
+    .loading-mask {
+      position: absolute;
+      inset: 0;
+      background: rgba(9, 13, 27, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+
+    .loading-mask.show { display: flex; }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid rgba(233, 238, 249, 0.2);
+      border-top-color: #7ad2f9;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .success-box {
+      background: rgba(57, 203, 145, 0.11);
+      border: 1px solid rgba(57, 203, 145, 0.45);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+      color: #bff6dd;
+      font-size: 14px;
+    }
+
+    .user-info {
+      margin: 0;
+      color: #d9e4ff;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    @media (max-width: 640px) {
+      .head, .body { padding: 16px; }
+      .step-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .step-track .step-pill:last-child { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="head">
+      <h1 class="title">账号认证向导</h1>
+      <p class="desc">账号 ID：{{ account_id }}，请按步骤完成 Telegram 登录与可选 Bot 配置。</p>
+      <div class="step-track" id="stepTrack">
+        <div class="step-pill" data-track-step="phone">手机号</div>
+        <div class="step-pill" data-track-step="code">验证码</div>
+        <div class="step-pill" data-track-step="password">二次验证</div>
+        <div class="step-pill" data-track-step="bot_token">Bot 配置</div>
+        <div class="step-pill" data-track-step="success">完成</div>
+      </div>
+    </section>
+
+    <section class="body">
+      <div id="errorBox" class="error-box"></div>
+
+      <div id="panel-phone" class="panel">
+        <h2 class="panel-title">输入手机号</h2>
+        <p class="panel-text">请输入带国家区号的号码，例如 +8613800000000。</p>
+        <form id="formPhone" novalidate>
+          <div class="field">
+            <label class="label" for="phoneInput">手机号</label>
+            <input id="phoneInput" class="input" type="tel" placeholder="+86..." required>
+          </div>
+          <div class="actions">
+            <button id="btnSendCode" type="submit" class="btn btn-primary">发送验证码</button>
+            <a class="btn btn-ghost" href="/">返回仪表盘</a>
+          </div>
+        </form>
+      </div>
+
+      <div id="panel-code" class="panel">
+        <h2 class="panel-title">输入验证码</h2>
+        <p class="panel-text">验证码已发送至手机号，请输入收到的登录验证码。</p>
+        <form id="formCode" novalidate>
+          <div class="field">
+            <label class="label" for="codeInput">验证码</label>
+            <input id="codeInput" class="input" type="text" inputmode="numeric" autocomplete="one-time-code" required>
+          </div>
+          <div class="actions">
+            <button id="btnVerifyCode" type="submit" class="btn btn-primary">验证</button>
+            <button id="btnBackPhone" type="button" class="btn btn-ghost">返回上一步</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="panel-password" class="panel">
+        <h2 class="panel-title">二次验证密码</h2>
+        <p class="panel-text">此账号启用了两步验证，请输入 2FA 密码。</p>
+        <form id="formPassword" novalidate>
+          <div class="field">
+            <label class="label" for="passwordInput">密码</label>
+            <input id="passwordInput" class="input" type="password" required>
+          </div>
+          <div class="actions">
+            <button id="btnVerifyPassword" type="submit" class="btn btn-primary">验证密码</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="panel-bot_token" class="panel">
+        <h2 class="panel-title">配置 Bot（可选）</h2>
+        <p class="panel-text">可立即绑定 Bot Token，后续也可在仪表盘继续配置。</p>
+        <form id="formBot" novalidate>
+          <div class="field">
+            <label class="label" for="botTokenInput">Bot Token</label>
+            <input id="botTokenInput" class="input" type="text" placeholder="123456:ABCDEF...">
+          </div>
+          <div class="actions">
+            <button id="btnConfigBot" type="submit" class="btn btn-primary">配置Bot</button>
+            <a id="skipBot" class="link-skip" href="#">跳过</a>
+          </div>
+        </form>
+      </div>
+
+      <div id="panel-success" class="panel">
+        <h2 class="panel-title">认证完成</h2>
+        <div class="success-box">账号认证已成功完成，可开始执行下载任务。</div>
+        <p id="successUserInfo" class="user-info"></p>
+        <div class="actions" style="margin-top:14px;">
+          <a class="btn btn-primary" href="/">返回仪表盘</a>
+        </div>
+      </div>
+
+      <div id="loadingMask" class="loading-mask" aria-hidden="true">
+        <div class="spinner" aria-label="加载中"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const accountId = {{ account_id | tojson }};
+      const initialStep = {{ (step or 'phone') | tojson }};
+      const initialError = {{ error | default('', true) | tojson }};
+      const initialPhone = {{ phone | default('', true) | tojson }};
+
+      const panels = {
+        phone: document.getElementById('panel-phone'),
+        code: document.getElementById('panel-code'),
+        password: document.getElementById('panel-password'),
+        bot_token: document.getElementById('panel-bot_token'),
+        success: document.getElementById('panel-success')
+      };
+
+      const stepOrder = ['phone', 'code', 'password', 'bot_token', 'success'];
+      const errorBox = document.getElementById('errorBox');
+      const loadingMask = document.getElementById('loadingMask');
+      const successUserInfo = document.getElementById('successUserInfo');
+
+      const phoneInput = document.getElementById('phoneInput');
+      const codeInput = document.getElementById('codeInput');
+      const passwordInput = document.getElementById('passwordInput');
+      const botTokenInput = document.getElementById('botTokenInput');
+
+      const userInfo = {
+        phone: initialPhone || '',
+        user_id: '',
+        username: '',
+        first_name: ''
+      };
+
+      if (initialPhone) {
+        phoneInput.value = initialPhone;
+      }
+
+      function setLoading(show) {
+        loadingMask.classList.toggle('show', show);
+        loadingMask.setAttribute('aria-hidden', show ? 'false' : 'true');
+      }
+
+      function showError(message) {
+        if (!message) {
+          errorBox.style.display = 'none';
+          errorBox.textContent = '';
+          return;
+        }
+        errorBox.textContent = message;
+        errorBox.style.display = 'block';
+      }
+
+      function updateTrack(stepName) {
+        document.querySelectorAll('[data-track-step]').forEach(function (el) {
+          el.classList.toggle('active', el.dataset.trackStep === stepName);
+        });
+      }
+
+      function renderSuccessUserInfo() {
+        const lines = [
+          '账号 ID：' + accountId,
+          '手机号：' + (userInfo.phone || phoneInput.value.trim() || '未提供')
+        ];
+        if (userInfo.user_id) lines.push('用户 ID：' + userInfo.user_id);
+        if (userInfo.username) lines.push('用户名：@' + userInfo.username);
+        if (userInfo.first_name) lines.push('昵称：' + userInfo.first_name);
+        successUserInfo.textContent = lines.join('  |  ');
+      }
+
+      function normalizeStep(stepName) {
+        if (!stepOrder.includes(stepName)) return 'phone';
+        return stepName;
+      }
+
+      function showStep(stepName) {
+        const step = normalizeStep(stepName);
+        Object.keys(panels).forEach(function (key) {
+          panels[key].classList.toggle('active', key === step);
+        });
+        updateTrack(step);
+
+        if (step === 'phone') phoneInput.focus();
+        if (step === 'code') codeInput.focus();
+        if (step === 'password') passwordInput.focus();
+        if (step === 'bot_token') botTokenInput.focus();
+        if (step === 'success') renderSuccessUserInfo();
+      }
+
+      async function postJSON(url, payload) {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload || {})
+        });
+
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (e) {
+          data = { ok: false, error: '服务返回异常。' };
+        }
+        if (!response.ok) {
+          data.ok = false;
+          if (!data.error) data.error = '请求失败，请稍后重试。';
+        }
+        return data;
+      }
+
+      function absorbUserData(data) {
+        const user = data.user || data.user_info || {};
+        if (data.phone) userInfo.phone = data.phone;
+        if (user.phone) userInfo.phone = user.phone;
+        if (user.id) userInfo.user_id = String(user.id);
+        if (user.username) userInfo.username = user.username;
+        if (user.first_name) userInfo.first_name = user.first_name;
+      }
+
+      document.getElementById('formPhone').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        showError('');
+        const phone = phoneInput.value.trim();
+        if (!phone.startsWith('+') || phone.length < 6) {
+          showError('请输入正确的手机号（需包含国家区号，例如 +86）。');
+          return;
+        }
+        userInfo.phone = phone;
+
+        setLoading(true);
+        const data = await postJSON('/account/' + encodeURIComponent(accountId) + '/auth/send_code', { phone: phone });
+        setLoading(false);
+
+        if (!data.ok) {
+          showError(data.error || '发送验证码失败。');
+          return;
+        }
+        absorbUserData(data);
+        showStep(data.step || 'code');
+      });
+
+      document.getElementById('formCode').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        showError('');
+        const code = codeInput.value.trim();
+        if (!code) {
+          showError('请输入验证码。');
+          return;
+        }
+
+        setLoading(true);
+        const data = await postJSON('/account/' + encodeURIComponent(accountId) + '/auth/verify_code', { code: code });
+        setLoading(false);
+
+        if (!data.ok) {
+          showError(data.error || '验证码验证失败。');
+          return;
+        }
+        absorbUserData(data);
+        const next = data.step || 'success';
+        showStep(next);
+      });
+
+      document.getElementById('formPassword').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        showError('');
+        const password = passwordInput.value;
+        if (!password) {
+          showError('请输入密码。');
+          return;
+        }
+
+        setLoading(true);
+        const data = await postJSON('/account/' + encodeURIComponent(accountId) + '/auth/verify_password', { password: password });
+        setLoading(false);
+
+        if (!data.ok) {
+          showError(data.error || '密码验证失败。');
+          return;
+        }
+        absorbUserData(data);
+        showStep(data.step || 'success');
+      });
+
+      document.getElementById('formBot').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        showError('');
+        const botToken = botTokenInput.value.trim();
+        if (!botToken) {
+          showError('请输入 Bot Token，或点击“跳过”。');
+          return;
+        }
+
+        setLoading(true);
+        const data = await postJSON('/account/' + encodeURIComponent(accountId) + '/bot/validate', { bot_token: botToken });
+        setLoading(false);
+
+        if (!data.ok) {
+          showError(data.error || 'Bot 配置失败。');
+          return;
+        }
+        absorbUserData(data);
+        showStep('success');
+      });
+
+      document.getElementById('btnBackPhone').addEventListener('click', function () {
+        showError('');
+        showStep('phone');
+      });
+
+      document.getElementById('skipBot').addEventListener('click', function (event) {
+        event.preventDefault();
+        showError('');
+        showStep('success');
+      });
+
+      if (initialError) showError(initialError);
+      showStep(normalizeStep(initialStep));
+    })();
+  </script>
+</body>
+</html>

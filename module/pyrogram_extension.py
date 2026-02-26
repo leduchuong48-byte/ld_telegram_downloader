@@ -313,10 +313,9 @@ async def upload_telegram_chat(
                         TaskType.ListenForward,
                     ):
                         should_remove_file = True
-                    elif (
-                        app.after_upload_telegram_delete
-                        and forward_status
-                        in (ForwardStatus.SuccessForward, ForwardStatus.CacheForward)
+                    elif app.after_upload_telegram_delete and forward_status in (
+                        ForwardStatus.SuccessForward,
+                        ForwardStatus.CacheForward,
                     ):
                         should_remove_file = True
                 if should_remove_file:
@@ -1015,7 +1014,7 @@ async def _report_bot_status(
                 f" │   ├─ 📏 : {value.total}\n"
                 f" │   ├─ ⏫ : {value.speed}\n"
                 f" │   └─ 📊 : ["
-                f'{create_progress_bar(int(value.percentage.split("%")[0]))}]'
+                f"{create_progress_bar(int(value.percentage.split('%')[0]))}]"
                 f" ({value.percentage})%\n"
             )
 
@@ -1122,7 +1121,13 @@ async def fetch_message(client: pyrogram.Client, message: pyrogram.types.Message
     )
 
 
-async def retry(func: Callable, args: tuple = (), max_attempts=3, wait_second=15):
+async def retry(
+    func: Callable,
+    args: tuple = (),
+    kwargs: dict = None,
+    max_attempts=3,
+    wait_second=15,
+):
     """
     Asynchronously retries the provided function
     a specified number of times with a specified wait time between retries.
@@ -1140,7 +1145,7 @@ async def retry(func: Callable, args: tuple = (), max_attempts=3, wait_second=15
 
     for _ in range(1, max_attempts + 1):
         try:
-            return await func(*args)
+            return await func(*args, **(kwargs or {}))
         except FLOOD_WAIT_EXCEPTIONS as wait_err:
             logger.warning("bad call retry: FlowWait {}", wait_err.value)
             await asyncio.sleep(wait_err.value)

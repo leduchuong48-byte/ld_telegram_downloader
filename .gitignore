@@ -70,3 +70,22 @@ config.yaml
 data.yaml
 *.scss
 *.css.map
+# github-push defaults
+__pycache__/
+*.py[cod]
+.venv/
+*.log
+cache_results.jsonl
+run_trace.log
+typing_world.csv
+maimemo_vocabulary.txt
+vocabulary_reading.xlsx
+vocabulary_reading.pdf
+input/
+en_core_web_sm/
+en_core_web_sm-*.dist-info/
+en_core_web_sm-*.whl
+.env
+.env.*
+!.env.example
+llm_settings.local.json

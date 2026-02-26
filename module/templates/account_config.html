@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>配置编辑 - 账号 {{ account_id }}</title>
+  <style>
+    :root {
+      --bg: #161a2d;
+      --panel: #1f2742;
+      --panel-soft: #252f50;
+      --line: #2f3a63;
+      --text: #e8ecf8;
+      --muted: #a3afcf;
+      --primary: #2aabee;
+      --primary-strong: #1a8cc8;
+      --danger: #e25563;
+      --danger-strong: #be3947;
+      --warn: #f4c84b;
+      --ok: #36c98d;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42, 171, 238, 0.16), transparent 40%),
+        radial-gradient(circle at 90% 120%, rgba(54, 201, 141, 0.1), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container { width: min(1160px, 92vw); margin: 24px auto 36px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .title { margin: 0; font-size: clamp(20px, 2.8vw, 28px); }
+    .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.18s ease;
+      color: #fff;
+      background: var(--panel-soft);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), #238fc7); }
+    .btn-primary:hover { background: linear-gradient(135deg, #37b4f1, #2a9ed9); }
+    .btn-ghost { background: #2a3358; }
+    .btn-ghost:hover { background: #33406e; }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(37, 47, 80, 0.82), rgba(31, 39, 66, 0.95));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .accordion {
+      border: 1px solid rgba(83, 99, 146, 0.38);
+      border-radius: 11px;
+      background: rgba(17, 22, 39, 0.52);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .accordion > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #d9e7ff;
+      border-bottom: 1px solid transparent;
+      user-select: none;
+    }
+    .accordion[open] > summary {
+      border-bottom-color: rgba(83, 99, 146, 0.32);
+      background: rgba(42, 171, 238, 0.08);
+    }
+    .accordion > summary::-webkit-details-marker { display: none; }
+    .section { padding: 12px 14px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field { margin-bottom: 12px; }
+    .label { display: block; font-size: 13px; color: #c8d3ef; margin-bottom: 6px; }
+    .input, .select {
+      width: 100%;
+      background: #111733;
+      border: 1px solid #3a4876;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+    .input:focus, .select:focus {
+      border-color: #49bdf3;
+      box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.2);
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .check {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #d7e4ff;
+      font-size: 13px;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(83, 99, 146, 0.28);
+      background: rgba(17, 22, 39, 0.35);
+    }
+
+    .foot {
+      position: sticky;
+      bottom: 8px;
+      z-index: 5;
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 8px;
+    }
+
+    .toast-wrap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      min-width: 220px;
+      max-width: 360px;
+      border-radius: 11px;
+      padding: 10px 12px;
+      border: 1px solid;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      animation: slideIn 0.18s ease;
+      background: rgba(17, 22, 39, 0.96);
+    }
+    .toast.ok { border-color: rgba(54, 201, 141, 0.5); color: #bff6dd; }
+    .toast.err { border-color: rgba(226, 85, 99, 0.55); color: #ffb2ba; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 13, 27, 0.46);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .loading-mask.show { display: flex; }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid rgba(233, 238, 249, 0.2);
+      border-top-color: #7ad2f9;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 900px) {
+      .grid, .checks { grid-template-columns: 1fr; }
+      .container { width: 94vw; margin-top: 20px; }
+      .nav-links { width: 100%; }
+      .nav-links .btn { flex: 1; min-width: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <div>
+        <h1 class="title">配置编辑器</h1>
+        <p class="subtitle">账号 ID：{{ account_id }}</p>
+      </div>
+      <nav class="nav-links">
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/tasks">任务</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/downloads">下载</a>
+        <a class="btn btn-primary" href="/account/{{ account_id }}/config">配置</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/chats">频道</a>
+        <a class="btn btn-ghost" href="/">仪表盘</a>
+      </nav>
+    </header>
+
+    <form id="configForm" class="panel" novalidate>
+      <details class="accordion" open>
+        <summary>存储</summary>
+        <div class="section">
+          <div class="field">
+            <label class="label" for="savePath">save_path</label>
+            <input id="savePath" class="input" type="text">
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion" open>
+        <summary>媒体类型</summary>
+        <div class="section">
+          <div class="checks" id="mediaTypesWrap"></div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>文件格式</summary>
+        <div class="section grid">
+          <div class="field">
+            <label class="label" for="audioFormats">音频格式（audio formats）</label>
+            <input id="audioFormats" class="input" type="text" placeholder="all,mp3">
+          </div>
+          <div class="field">
+            <label class="label" for="documentFormats">文档格式（document formats）</label>
+            <input id="documentFormats" class="input" type="text" placeholder="pdf,epub">
+          </div>
+          <div class="field">
+            <label class="label" for="videoFormats">视频格式（video formats）</label>
+            <input id="videoFormats" class="input" type="text" placeholder="mp4,mkv">
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>文件命名</summary>
+        <div class="section grid">
+          <div class="field">
+            <label class="label" for="filePathPrefix">目录前缀（file_path_prefix，多选）</label>
+            <select id="filePathPrefix" class="select" multiple size="3">
+              <option value="chat_title">chat_title</option>
+              <option value="media_datetime">media_datetime</option>
+              <option value="media_type">media_type</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="fileNamePrefix">文件名前缀（file_name_prefix，多选）</label>
+            <select id="fileNamePrefix" class="select" multiple size="3">
+              <option value="message_id">message_id</option>
+              <option value="file_name">file_name</option>
+              <option value="caption">caption</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="fileNamePrefixSplit">文件名前缀分隔符（file_name_prefix_split）</label>
+            <input id="fileNamePrefixSplit" class="input" type="text">
+          </div>
+          <div class="field">
+            <label class="label" for="dateFormat">日期格式（date_format）</label>
+            <input id="dateFormat" class="input" type="text" placeholder="%Y_%m">
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>性能</summary>
+        <div class="section grid">
+          <div class="field">
+            <label class="label" for="maxDownloadTask">max_download_task</label>
+            <input id="maxDownloadTask" class="input" type="number" min="1">
+          </div>
+          <div class="field">
+            <label class="label" for="maxConcurrentTransmissions">max_concurrent_transmissions</label>
+            <input id="maxConcurrentTransmissions" class="input" type="number" min="1">
+          </div>
+          <div class="field">
+            <label class="label" for="maxUploadTask">max_upload_task</label>
+            <input id="maxUploadTask" class="input" type="number" min="0">
+          </div>
+          <div class="field">
+            <label class="label" for="downloadTimeout">download_timeout</label>
+            <input id="downloadTimeout" class="input" type="number" min="0">
+          </div>
+          <div class="field">
+            <label class="label" for="uploadTimeout">upload_timeout</label>
+            <input id="uploadTimeout" class="input" type="number" min="0">
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>云盘</summary>
+        <div class="section grid">
+          <label class="check"><input id="enableUploadFile" type="checkbox"> enable_upload_file</label>
+          <div class="field">
+            <label class="label" for="uploadAdapter">上传适配器（upload_adapter）</label>
+            <select id="uploadAdapter" class="select">
+              <option value="rclone">rclone</option>
+              <option value="aligo">aligo</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="remoteDir">远端目录（remote_dir）</label>
+            <input id="remoteDir" class="input" type="text">
+          </div>
+          <div class="field">
+            <label class="label" for="rclonePath">rclone 路径（rclone_path）</label>
+            <input id="rclonePath" class="input" type="text">
+          </div>
+          <label class="check"><input id="beforeUploadFileZip" type="checkbox"> before_upload_file_zip</label>
+          <label class="check"><input id="afterUploadFileDelete" type="checkbox"> after_upload_file_delete</label>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>代理</summary>
+        <div class="section grid">
+          <div class="field">
+            <label class="label" for="proxyScheme">scheme</label>
+            <select id="proxyScheme" class="select">
+              <option value="socks5">socks5</option>
+              <option value="socks4">socks4</option>
+              <option value="http">http</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="proxyHostname">hostname</label>
+            <input id="proxyHostname" class="input" type="text">
+          </div>
+          <div class="field">
+            <label class="label" for="proxyPort">port</label>
+            <input id="proxyPort" class="input" type="number" min="0">
+          </div>
+          <div class="field">
+            <label class="label" for="proxyUsername">username</label>
+            <input id="proxyUsername" class="input" type="text">
+          </div>
+          <div class="field">
+            <label class="label" for="proxyPassword">password</label>
+            <input id="proxyPassword" class="input" type="password">
+          </div>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>Bot 配置</summary>
+        <div class="section">
+          <div class="field">
+            <label class="label" for="botToken">Bot Token（留空则不启用 Bot）</label>
+            <input id="botToken" class="input" type="text" placeholder="123456:ABC-DEF...">
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin:4px 0 0;">修改后需重启账号实例才能生效。可在仪表盘停止再启动该账号。</p>
+        </div>
+      </details>
+
+      <details class="accordion">
+        <summary>其他</summary>
+        <div class="section grid">
+          <label class="check"><input id="hideFileName" type="checkbox"> hide_file_name</label>
+          <label class="check"><input id="enableDownloadTxt" type="checkbox"> enable_download_txt</label>
+          <div class="field">
+            <label class="label" for="language">language</label>
+            <select id="language" class="select">
+              <option value="EN">EN</option>
+              <option value="ZH">ZH</option>
+              <option value="RU">RU</option>
+              <option value="UA">UA</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <div class="foot">
+        <button id="saveBtn" class="btn btn-primary" type="submit">保存配置</button>
+      </div>
+    </form>
+  </main>
+
+  <div id="loadingMask" class="loading-mask" aria-hidden="true">
+    <div class="spinner" aria-label="加载中"></div>
+  </div>
+  <div id="toastWrap" class="toast-wrap"></div>
+
+  <script>
+    (function () {
+      const accountId = {{ account_id | tojson }};
+      const cfg = {{ config | default({}, true) | tojson }} || {};
+
+      const MEDIA_TYPE_OPTIONS = ['audio', 'document', 'photo', 'video', 'voice', 'animation'];
+      const mediaTypesWrap = document.getElementById('mediaTypesWrap');
+      const loadingMask = document.getElementById('loadingMask');
+      const toastWrap = document.getElementById('toastWrap');
+
+      let pendingCount = 0;
+      let loadingTimer = null;
+
+      function setLoading(show) {
+        if (show) {
+          pendingCount += 1;
+          if (!loadingTimer) {
+            loadingTimer = window.setTimeout(function () {
+              if (pendingCount > 0) {
+                loadingMask.classList.add('show');
+                loadingMask.setAttribute('aria-hidden', 'false');
+              }
+              loadingTimer = null;
+            }, 180);
+          }
+          return;
+        }
+        pendingCount = Math.max(0, pendingCount - 1);
+        if (pendingCount === 0) {
+          if (loadingTimer) {
+            window.clearTimeout(loadingTimer);
+            loadingTimer = null;
+          }
+          loadingMask.classList.remove('show');
+          loadingMask.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      function showToast(message, type) {
+        const node = document.createElement('div');
+        node.className = 'toast ' + (type === 'ok' ? 'ok' : 'err');
+        node.textContent = message;
+        toastWrap.appendChild(node);
+        window.setTimeout(function () {
+          node.style.opacity = '0';
+          node.style.transform = 'translateY(8px)';
+          window.setTimeout(function () { node.remove(); }, 180);
+        }, 2600);
+      }
+
+      function setVal(id, val) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.type === 'checkbox') {
+          el.checked = !!val;
+          return;
+        }
+        el.value = val == null ? '' : String(val);
+      }
+
+      function getVal(id) {
+        const el = document.getElementById(id);
+        if (!el) return '';
+        if (el.type === 'checkbox') return !!el.checked;
+        return el.value;
+      }
+
+      function splitFormats(value) {
+        if (!value) return [];
+        return String(value).split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+      }
+
+      function setMultiSelect(id, values) {
+        const el = document.getElementById(id);
+        const set = new Set(Array.isArray(values) ? values : []);
+        Array.from(el.options).forEach(function (opt) {
+          opt.selected = set.has(opt.value);
+        });
+      }
+
+      function getMultiSelect(id) {
+        const el = document.getElementById(id);
+        return Array.from(el.selectedOptions).map(function (opt) { return opt.value; });
+      }
+
+      function renderMediaTypes(selected) {
+        const set = new Set(Array.isArray(selected) ? selected : []);
+        mediaTypesWrap.innerHTML = MEDIA_TYPE_OPTIONS.map(function (name) {
+          return '<label class="check"><input type="checkbox" value="' + name + '" ' + (set.has(name) ? 'checked' : '') + '> ' + name + '</label>';
+        }).join('');
+      }
+
+      function getSelectedMediaTypes() {
+        return Array.from(mediaTypesWrap.querySelectorAll('input[type="checkbox"]:checked')).map(function (el) { return el.value; });
+      }
+
+      async function requestJSON(url, options) {
+        setLoading(true);
+        try {
+          const response = await fetch(url, options || {});
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (e) {
+            data = { ok: false, error: '服务返回格式异常。' };
+          }
+          if (!response.ok) {
+            data.ok = false;
+            if (!data.error) data.error = '请求失败，请稍后重试。';
+          }
+          return data;
+        } catch (e) {
+          return { ok: false, error: '网络异常，请稍后重试。' };
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      function fillForm() {
+        renderMediaTypes(cfg.media_types || []);
+
+        setVal('savePath', cfg.save_path);
+        setVal('audioFormats', (cfg.file_formats && cfg.file_formats.audio || []).join(','));
+        setVal('documentFormats', (cfg.file_formats && cfg.file_formats.document || []).join(','));
+        setVal('videoFormats', (cfg.file_formats && cfg.file_formats.video || []).join(','));
+
+        setMultiSelect('filePathPrefix', cfg.file_path_prefix || []);
+        setMultiSelect('fileNamePrefix', cfg.file_name_prefix || []);
+        setVal('fileNamePrefixSplit', cfg.file_name_prefix_split);
+        setVal('dateFormat', cfg.date_format);
+
+        setVal('maxDownloadTask', cfg.max_download_task);
+        setVal('maxConcurrentTransmissions', cfg.max_concurrent_transmissions);
+        setVal('maxUploadTask', cfg.max_upload_task);
+        setVal('downloadTimeout', cfg.download_timeout);
+        setVal('uploadTimeout', cfg.upload_timeout);
+
+        const uploadDrive = cfg.upload_drive || {};
+        setVal('enableUploadFile', uploadDrive.enable_upload_file);
+        setVal('uploadAdapter', uploadDrive.upload_adapter || 'rclone');
+        setVal('remoteDir', uploadDrive.remote_dir);
+        setVal('rclonePath', uploadDrive.rclone_path);
+        setVal('beforeUploadFileZip', uploadDrive.before_upload_file_zip);
+        setVal('afterUploadFileDelete', uploadDrive.after_upload_file_delete);
+
+        const proxy = cfg.proxy || {};
+        setVal('proxyScheme', proxy.scheme || 'socks5');
+        setVal('proxyHostname', proxy.hostname);
+        setVal('proxyPort', proxy.port);
+        setVal('proxyUsername', proxy.username);
+        setVal('proxyPassword', proxy.password);
+
+        setVal('hideFileName', cfg.hide_file_name);
+        setVal('enableDownloadTxt', cfg.enable_download_txt);
+        setVal('language', cfg.language || 'EN');
+        setVal('botToken', cfg.bot_token);
+      }
+
+      function buildPayload() {
+        return {
+          save_path: getVal('savePath').trim(),
+          media_types: getSelectedMediaTypes(),
+          file_formats: {
+            audio: splitFormats(getVal('audioFormats')),
+            document: splitFormats(getVal('documentFormats')),
+            video: splitFormats(getVal('videoFormats'))
+          },
+          file_path_prefix: getMultiSelect('filePathPrefix'),
+          file_name_prefix: getMultiSelect('fileNamePrefix'),
+          file_name_prefix_split: getVal('fileNamePrefixSplit'),
+          date_format: getVal('dateFormat'),
+          max_download_task: Number(getVal('maxDownloadTask') || 0),
+          max_concurrent_transmissions: Number(getVal('maxConcurrentTransmissions') || 0),
+          max_upload_task: Number(getVal('maxUploadTask') || 0),
+          download_timeout: Number(getVal('downloadTimeout') || 0),
+          upload_timeout: Number(getVal('uploadTimeout') || 0),
+          upload_drive: {
+            enable_upload_file: getVal('enableUploadFile'),
+            upload_adapter: getVal('uploadAdapter'),
+            remote_dir: getVal('remoteDir').trim(),
+            rclone_path: getVal('rclonePath').trim(),
+            before_upload_file_zip: getVal('beforeUploadFileZip'),
+            after_upload_file_delete: getVal('afterUploadFileDelete')
+          },
+          proxy: {
+            scheme: getVal('proxyScheme'),
+            hostname: getVal('proxyHostname').trim(),
+            port: Number(getVal('proxyPort') || 0),
+            username: getVal('proxyUsername').trim(),
+            password: getVal('proxyPassword')
+          },
+          hide_file_name: getVal('hideFileName'),
+          enable_download_txt: getVal('enableDownloadTxt'),
+          language: getVal('language'),
+          bot_token: getVal('botToken').trim()
+        };
+      }
+
+      document.getElementById('configForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.disabled = true;
+
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/config/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildPayload())
+        });
+
+        saveBtn.disabled = false;
+        if (!data.ok) {
+          showToast(data.error || '保存配置失败。', 'err');
+          return;
+        }
+        showToast('配置已保存。', 'ok');
+      });
+
+      fillForm();
+    })();
+  </script>
+</body>
+</html>

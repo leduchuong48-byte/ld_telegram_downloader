@@ -1,4 +1,0 @@
-ids_to_retry: []
-chat:
-  - chat_id: telegram_chat_id
-    ids_to_retry: []

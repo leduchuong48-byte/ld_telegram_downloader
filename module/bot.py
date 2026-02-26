@@ -7,8 +7,7 @@ from typing import Callable, List, Union
 
 import pyrogram
 from loguru import logger
-from pyrogram import types
-from pyrogram.handlers import CallbackQueryHandler, MessageHandler
+from pyrogram.handlers import MessageHandler
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from ruamel import yaml
 
@@ -23,6 +22,7 @@ from module.app import (
     TaskType,
     UploadStatus,
 )
+from module.bot_api_poller import BotApiFacadeClient, BotApiPoller
 from module.filter import Filter
 from module.get_chat_history_v2 import get_chat_history_v2
 from module.language import Language, _t
@@ -36,8 +36,17 @@ from module.pyrogram_extension import (
     set_meta_data,
     upload_telegram_chat_message,
 )
-from utils.file_management import cleanup_dir_by_freeing, clear_dir_contents, get_dir_size
-from utils.format import format_byte, parse_size_to_bytes, replace_date_time, validate_title
+from utils.file_management import (
+    cleanup_dir_by_freeing,
+    clear_dir_contents,
+    get_dir_size,
+)
+from utils.format import (
+    format_byte,
+    parse_size_to_bytes,
+    replace_date_time,
+    validate_title,
+)
 from utils.meta_data import MetaData
 
 # pylint: disable = C0301, R0902
@@ -69,6 +78,8 @@ class DownloadBot:
         self.download_filter: List[str] = []
         self.task_id: int = 0
         self.reply_task = None
+        self.poller = None
+        self._poller_task = None
 
     def gen_task_id(self) -> int:
         """Gen task id"""
@@ -140,57 +151,66 @@ class DownloadBot:
         download_chat_task: Callable,
     ):
         """Start bot"""
-        self.bot = pyrogram.Client(
-            app.application_name + "_bot",
-            api_hash=app.api_hash,
-            api_id=app.api_id,
-            bot_token=app.bot_token,
-            workdir=app.session_file_path,
-            proxy=app.proxy,
-        )
+        # Use Bot API HTTP facade instead of Pyrogram MTProto bot client.
+        # This avoids the MTProto connection stealing updates from the
+        # Bot API HTTP poller (confirmed pyrotgfork 2.2.1 bug).
+        self.bot = BotApiFacadeClient(app.bot_token)
+        self.bot.loop = getattr(app, "loop", None)
 
         # 命令列表
         commands = [
-            types.BotCommand("help", _t("Help")),
-            types.BotCommand(
-                "get_info", _t("Get group and user info from message link")
-            ),
-            types.BotCommand(
-                "download",
-                _t(
+            {"command": "help", "description": _t("Help")},
+            {
+                "command": "get_info",
+                "description": _t("Get group and user info from message link"),
+            },
+            {
+                "command": "download",
+                "description": _t(
                     "To download the video, use the method to directly enter /download to view"
                 ),
-            ),
-            types.BotCommand(
-                "forward",
-                _t("Forward video, use the method to directly enter /forward to view"),
-            ),
-            types.BotCommand(
-                "listen_forward",
-                _t(
+            },
+            {
+                "command": "forward",
+                "description": _t(
+                    "Forward video, use the method to directly enter /forward to view"
+                ),
+            },
+            {
+                "command": "listen_forward",
+                "description": _t(
                     "Listen forward, use the method to directly enter /listen_forward to view"
                 ),
-            ),
-            types.BotCommand(
-                "add_filter",
-                _t(
+            },
+            {
+                "command": "add_filter",
+                "description": _t(
                     "Add download filter, use the method to directly enter /add_filter to view"
                 ),
-            ),
-            types.BotCommand("set_language", _t("Set language")),
-            types.BotCommand("stop", _t("Stop bot download or forward")),
-            types.BotCommand(
-                "cleanup",
-                _t("Toggle delete downloaded files after forward/upload, use /cleanup on|off"),
-            ),
-            types.BotCommand("forward_clean", "Clean forward folders"),
-            types.BotCommand("forward_limit", "Set forward folder size limit"),
+            },
+            {"command": "set_language", "description": _t("Set language")},
+            {"command": "stop", "description": _t("Stop bot download or forward")},
+            {
+                "command": "cleanup",
+                "description": _t(
+                    "Toggle delete downloaded files after forward/upload, use /cleanup on|off"
+                ),
+            },
+            {"command": "forward_clean", "description": "Clean forward folders"},
+            {
+                "command": "forward_limit",
+                "description": "Set forward folder size limit",
+            },
         ]
 
         self.app = app
         self.client = client
         self.add_download_task = add_download_task
         self.download_chat_task = download_chat_task
+
+        # Sync module-level _bot so all handler functions reference this instance
+        global _bot
+        _bot = self
 
         # load config
         if os.path.exists(self.config_path):
@@ -200,9 +220,9 @@ class DownloadBot:
                     self.config = config
                     self.assign_config(self.config)
 
-        await self.bot.start()
-
+        # Get bot info via Bot API HTTP (no MTProto connection)
         self.bot_info = await self.bot.get_me()
+        logger.info(f"Bot info: @{self.bot_info.username} (id={self.bot_info.id})")
 
         for allowed_user_id in self.app.allowed_user_ids:
             try:
@@ -216,129 +236,49 @@ class DownloadBot:
 
         await self.bot.set_bot_commands(commands)
 
-        self.bot.add_handler(
-            MessageHandler(
-                download_from_bot,
-                filters=pyrogram.filters.command(["download"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                forward_messages,
-                filters=pyrogram.filters.command(["forward"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                download_forward_media,
-                filters=pyrogram.filters.media
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                download_from_link,
-                filters=pyrogram.filters.regex(r"^https://t.me.*")
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                set_listen_forward_msg,
-                filters=pyrogram.filters.command(["listen_forward"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                help_command,
-                filters=pyrogram.filters.command(["help"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                get_info,
-                filters=pyrogram.filters.command(["get_info"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                help_command,
-                filters=pyrogram.filters.command(["start"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                set_language,
-                filters=pyrogram.filters.command(["set_language"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                add_filter,
-                filters=pyrogram.filters.command(["add_filter"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
+        # No Pyrogram handler registration needed — all message routing
+        # is handled by BotApiPoller via Bot API HTTP long-polling.
 
-        self.bot.add_handler(
-            MessageHandler(
-                toggle_cleanup,
-                filters=pyrogram.filters.command(["cleanup"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                forward_clean,
-                filters=pyrogram.filters.regex(r"^/forward[-_]clean(?:@\w+)?(\s|$)")
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-        self.bot.add_handler(
-            MessageHandler(
-                set_forward_limit,
-                filters=pyrogram.filters.regex(r"^/forward[-_]limit(?:@\w+)?(\s|$)")
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-
-        self.bot.add_handler(
-            MessageHandler(
-                stop,
-                filters=pyrogram.filters.command(["stop"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
-        )
-
-        self.bot.add_handler(
-            CallbackQueryHandler(
-                on_query_handler, filters=pyrogram.filters.user(self.allowed_user_ids)
-            )
-        )
-
+        # Listen for forwarded messages on the USER client (not the bot)
         self.client.add_handler(MessageHandler(listen_forward_msg))
 
         try:
             await send_help_str(self.bot, admin.id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to send welcome message: {e}")
 
-        self.reply_task = _bot.app.loop.create_task(_bot.update_reply_message())
+        self.reply_task = self.app.loop.create_task(self.update_reply_message())
 
-        self.bot.add_handler(
-            MessageHandler(
-                forward_to_comments,
-                filters=pyrogram.filters.command(["forward_to_comments"])
-                & pyrogram.filters.user(self.allowed_user_ids),
-            )
+        # Start Bot API HTTP poller — the ONLY update receiver
+        self.poller = BotApiPoller(
+            bot_token=app.bot_token,
+            allowed_user_ids=self.allowed_user_ids,
+            loop=self.app.loop,
         )
+        self.poller.bot_client = self.bot
+        self.poller.set_handlers(
+            command_handlers={
+                "download": download_from_bot,
+                "forward": forward_messages,
+                "forward_to_comments": forward_to_comments,
+                "listen_forward": set_listen_forward_msg,
+                "help": help_command,
+                "start": help_command,
+                "get_info": get_info,
+                "set_language": set_language,
+                "add_filter": add_filter,
+                "cleanup": toggle_cleanup,
+                "stop": stop,
+            },
+            regex_handlers=[
+                (r"^https://t\.me", download_from_link),
+                (r"^/forward[-_]clean(?:@\w+)?(\s|$)", forward_clean),
+                (r"^/forward[-_]limit(?:@\w+)?(\s|$)", set_forward_limit),
+            ],
+            media_handler=download_forward_media,
+            callback_handler=on_query_handler,
+        )
+        self._poller_task = self.app.loop.create_task(self.poller.run())
 
 
 _bot = DownloadBot()
@@ -361,6 +301,10 @@ async def stop_download_bot():
     if _bot.reply_task:
         _bot.reply_task.cancel()
     _bot.stop_task("all")
+    if hasattr(_bot, "poller") and _bot.poller:
+        _bot.poller.stop()
+    if hasattr(_bot, "_poller_task") and _bot._poller_task:
+        _bot._poller_task.cancel()
     if _bot.bot:
         await _bot.bot.stop()
 
@@ -471,7 +415,8 @@ async def toggle_cleanup(client: pyrogram.Client, message: pyrogram.types.Messag
     args = message.text.split()
     if len(args) != 2 or args[1].lower() not in ["on", "off"]:
         await client.send_message(
-            message.from_user.id, _t("Invalid command format. Please use /cleanup on|off")
+            message.from_user.id,
+            _t("Invalid command format. Please use /cleanup on|off"),
         )
         return
 
@@ -568,7 +513,10 @@ async def get_info(client: pyrogram.Client, message: pyrogram.types.Message):
 
     if entity:
         if message_id:
-            _message = await retry(_bot.client.get_messages, args=(chat_id, message_id))
+            _message = await retry(
+                _bot.client.get_messages,
+                kwargs={"chat_id": chat_id, "message_ids": message_id},
+            )
             if _message:
                 meta_data = MetaData()
                 set_meta_data(meta_data, _message)
@@ -724,12 +672,13 @@ async def download_from_link(client: pyrogram.Client, message: pyrogram.types.Me
     if entity:
         if message_id:
             download_message = await retry(
-                _bot.client.get_messages, args=(chat_id, message_id)
+                _bot.client.get_messages,
+                kwargs={"chat_id": chat_id, "message_ids": message_id},
             )
             if download_message:
                 await direct_download(_bot, entity.id, message, download_message)
             else:
-                client.send_message(
+                await client.send_message(
                     message.from_user.id,
                     f"{_t('From')} {entity.title} {_t('download')} {message_id} {_t('error')}!",
                     reply_to_message_id=message.id,
@@ -934,19 +883,9 @@ async def get_forward_task_node(
 
     _bot.add_task_node(node)
 
+    # Always use the user client for uploads since the bot facade
+    # (BotApiFacadeClient) cannot upload files via MTProto.
     node.upload_user = _bot.client
-    if not dst_chat.type is pyrogram.enums.ChatType.BOT:
-        has_permission = await check_user_permission(_bot.client, me.id, dst_chat.id)
-        if has_permission:
-            node.upload_user = _bot.bot
-
-    if node.upload_user is _bot.client:
-        await client.edit_message_text(
-            message.from_user.id,
-            last_reply_message.id,
-            "Note that the robot may not be in the target group,"
-            " use the user account to forward",
-        )
 
     return node
 

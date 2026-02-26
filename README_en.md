@@ -1,93 +1,100 @@
-# LD Telegram Downloader
+# Project Name
+
+![Cover or Demo](docs/cover.gif)
+
+[![Docker Pulls](https://img.shields.io/docker/pulls/leduchuong/ld_tg_downloader?logo=docker&label=Docker%20Pulls)](https://hub.docker.com/r/leduchuong/ld_tg_downloader)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Build: Passing](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](#)
+[![Platform: ARM64/AMD64](https://img.shields.io/badge/Platform-ARM64%2FAMD64-blue.svg)](#)
 
 [中文](README.md)
 
-LD Telegram Downloader is a **WebUI-first** Telegram media downloading and monitoring tool. It combines discovery, download execution, progress visibility, pause/resume control, and archive output into one interface.
+> Better alternative to telegram-media-downloader for E-ink devices.
+
+One sentence describing what this project does.
+
+## Why this tool?
+
+Tired of <slow workflow> and <manual retries>? This tool is built to remove the 3-second lag and frequent failure points that make demos and operations unreliable.
 
 ## Why This Project Is Useful (Pain Points)
 
-For long-running channel/group media collection, common issues are:
-
-- Manual downloads are slow and error-prone
-- New content appears continuously, but tracking is fragmented
-- Download status and retry visibility are weak, making troubleshooting expensive
-
-This project combines bot-triggered actions with scheduled/batch downloading and keeps runtime status visible in a single WebUI.
+- Pain point 1: The most error-prone or time-consuming part in the old workflow
+- Pain point 2: Cost/maintenance burden of existing solutions
+- Pain point 3: Delivery or collaboration bottlenecks
 
 ## What the Project Does (Features)
 
-- Telegram media download for `audio/document/photo/video/voice/video_note`
-- Bot-triggered operations (download/forward workflow)
-- WebUI for real-time speed, task list, finished records, pause/resume
-- Configurable concurrent download/upload workers
-- Structured output paths by chat/time/media type rules
+- Core capability A
+- Core capability B
+- Core capability C
 
-## WebUI Highlights (Code-Verified)
+## ⚡️ Quick Start (Run in 3 seconds)
 
-Implemented in `module/web.py`:
+```bash
+docker run --rm -it --pull=always docker.io/leduchuong/ld_tg_downloader:latest
+```
 
-- Page routes: `/login`, `/`
-- Status APIs: `/get_download_status`, `/get_download_list`
-- Control API: `/set_download_state`
-- Version API: `/get_app_version`
+> Keep this command copy-paste ready before release; do not require readers to edit parameters.
 
-`module/templates/index.html` provides:
+## Docker Compose (Portainer / NAS ready)
 
-- Downloading/Downloaded tabs
-- Real-time progress and speed refresh
-- One-click pause/resume control
+```yaml
+services:
+  app:
+    image: docker.io/leduchuong/ld_tg_downloader:latest
+    container_name: ld_tg_downloader
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+    ports:
+      - "5000:5000"
+```
+
+## GitHub Topics (pick at least 5)
+
+`#nas` `#homelab` `#selfhosted` `#synology` `#unraid` `#eink` `#automation`
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.8+
-- Telegram API `api_id` / `api_hash`
-- Optional: Telegram Bot Token (for bot-triggered workflow)
-- Docker / Docker Compose (recommended)
+- Runtime/language versions
+- Dependency and system requirements
 
-### Run with Docker
+### Installation
 
 ```bash
-cp config.example.yaml config.yaml
-cp data.example.yaml data.yaml
-# edit config.yaml
-
-docker compose up -d --build
+<install command>
 ```
 
-Open: `http://localhost:5000`
-
-### Run Locally
+### Run
 
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-cp config.example.yaml config.yaml
-cp data.example.yaml data.yaml
-python3 media_downloader.py
+<run command>
 ```
 
-## Configuration Notes
+## Usage Example
 
-- `config.yaml`: main configuration (API, download strategy, WebUI, concurrency)
-- `data.yaml`: runtime state (for example retry-related data)
-- Do not publish real `config.yaml`, `data.yaml`, `sessions/`, `downloads/`, or `log/` to public repositories
+```bash
+<example command>
+```
 
 ## Where to Get Help
 
-- Issues: `https://github.com/leduchuong48-byte/ld_telegram_downloader/issues`
-- Please include sanitized config snippets, logs, and reproducible steps
+- Issues: `<repo>/issues`
+- Discussions / docs links
+- Contact (optional)
 
 ## Maintainers and Contributors
 
-- Maintainer: `@leduchuong48-byte`
-
-## License
-
-See `LICENSE` (MIT License).
+- Maintainer: @your-name
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Disclaimer
 
 By using this project, you acknowledge and agree to the [Disclaimer](DISCLAIMER.md).
+
+## License
+
+For example MIT, see [LICENSE](LICENSE)

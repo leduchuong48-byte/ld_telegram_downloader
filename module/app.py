@@ -459,7 +459,11 @@ class Application:
 
         # option
         if _config.get("proxy"):
-            self.proxy = _config["proxy"]
+            _proxy = _config["proxy"]
+            if _proxy.get("hostname"):
+                self.proxy = _proxy
+            else:
+                self.proxy = {}
         if _config.get("restart_program"):
             self.restart_program = _config["restart_program"]
         if _config.get("file_path_prefix"):
@@ -647,9 +651,9 @@ class Application:
                     "ids_to_retry"
                 ]
                 for it in self.chat_download_config[self._chat_id].ids_to_retry:
-                    self.chat_download_config[self._chat_id].ids_to_retry_dict[
-                        it
-                    ] = True
+                    self.chat_download_config[self._chat_id].ids_to_retry_dict[it] = (
+                        True
+                    )
 
             self.chat_download_config[self._chat_id].last_read_message_id = _config[
                 "last_read_message_id"
@@ -699,9 +703,9 @@ class Application:
                     "ids_to_retry"
                 ]
                 for it in self.chat_download_config[self._chat_id].ids_to_retry:
-                    self.chat_download_config[self._chat_id].ids_to_retry_dict[
-                        it
-                    ] = True
+                    self.chat_download_config[self._chat_id].ids_to_retry_dict[it] = (
+                        True
+                    )
                 self.app_data.pop("ids_to_retry")
         else:
             if app_data.get("chat"):
@@ -716,9 +720,9 @@ class Application:
                             "ids_to_retry", []
                         )
                         for it in self.chat_download_config[chat_id].ids_to_retry:
-                            self.chat_download_config[chat_id].ids_to_retry_dict[
-                                it
-                            ] = True
+                            self.chat_download_config[chat_id].ids_to_retry_dict[it] = (
+                                True
+                            )
         return True
 
     async def upload_file(
@@ -754,7 +758,8 @@ class Application:
                             local_file_path,
                         ),
                     ),
-                    timeout=self.upload_timeout or self.cloud_drive_config.upload_timeout,
+                    timeout=self.upload_timeout
+                    or self.cloud_drive_config.upload_timeout,
                 )
             except asyncio.TimeoutError:
                 logger.error(
@@ -963,11 +968,15 @@ class Application:
         # self.app_data["already_download_ids"] = list(self.already_download_ids_set)
 
         if immediate:
-            with open(self.config_file, "w", encoding="utf-8") as yaml_file:
+            with open(
+                self._resolve_path(self.config_file), "w", encoding="utf-8"
+            ) as yaml_file:
                 _yaml.dump(self.config, yaml_file)
 
         if immediate:
-            with open(self.app_data_file, "w", encoding="utf-8") as yaml_file:
+            with open(
+                self._resolve_path(self.app_data_file), "w", encoding="utf-8"
+            ) as yaml_file:
                 _yaml.dump(self.app_data, yaml_file)
 
     def set_language(self, language: Language):
@@ -975,21 +984,25 @@ class Application:
         self.language = language
         set_language(language)
 
+    def _resolve_path(self, path: str) -> str:
+        """Resolve a config path — absolute paths pass through, relative
+        paths are resolved against cwd."""
+        if os.path.isabs(path):
+            return path
+        return os.path.join(os.path.abspath("."), path)
+
     def load_config(self):
         """Load user config"""
-        with open(
-            os.path.join(os.path.abspath("."), self.config_file), encoding="utf-8"
-        ) as f:
+        config_path = self._resolve_path(self.config_file)
+        with open(config_path, encoding="utf-8") as f:
             config = _yaml.load(f.read())
             if config:
                 self.config = config
                 self.assign_config(self.config)
 
-        if os.path.exists(os.path.join(os.path.abspath("."), self.app_data_file)):
-            with open(
-                os.path.join(os.path.abspath("."), self.app_data_file),
-                encoding="utf-8",
-            ) as f:
+        data_path = self._resolve_path(self.app_data_file)
+        if os.path.exists(data_path):
+            with open(data_path, encoding="utf-8") as f:
                 app_data = _yaml.load(f.read())
                 if app_data:
                     self.app_data = app_data

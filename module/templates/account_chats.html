@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>频道管理 - 账号 {{ account_id }}</title>
+  <style>
+    :root {
+      --bg: #161a2d;
+      --panel: #1f2742;
+      --panel-soft: #252f50;
+      --line: #2f3a63;
+      --text: #e8ecf8;
+      --muted: #a3afcf;
+      --primary: #2aabee;
+      --primary-strong: #1a8cc8;
+      --danger: #e25563;
+      --danger-strong: #be3947;
+      --warn: #f4c84b;
+      --ok: #36c98d;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42, 171, 238, 0.16), transparent 40%),
+        radial-gradient(circle at 90% 120%, rgba(54, 201, 141, 0.1), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container { width: min(1160px, 92vw); margin: 24px auto 36px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .title { margin: 0; font-size: clamp(20px, 2.8vw, 28px); }
+    .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.18s ease;
+      color: #fff;
+      background: var(--panel-soft);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), #238fc7); }
+    .btn-primary:hover { background: linear-gradient(135deg, #37b4f1, #2a9ed9); }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: var(--danger-strong); }
+    .btn-ghost { background: #2a3358; }
+    .btn-ghost:hover { background: #33406e; }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(37, 47, 80, 0.82), rgba(31, 39, 66, 0.95));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-title { margin: 0 0 12px; font-size: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      border-bottom: 1px solid rgba(83, 99, 146, 0.32);
+      padding: 9px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th { color: #bed0f7; font-weight: 600; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field { margin-bottom: 12px; }
+    .label { display: block; font-size: 13px; color: #c8d3ef; margin-bottom: 6px; }
+    .input {
+      width: 100%;
+      background: #111733;
+      border: 1px solid #3a4876;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+    .input:focus {
+      border-color: #49bdf3;
+      box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.2);
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 12px;
+      text-align: center;
+      border: 1px dashed rgba(163, 175, 207, 0.35);
+      border-radius: 10px;
+      background: rgba(17, 22, 39, 0.45);
+    }
+
+    .info-card {
+      border: 1px solid rgba(83, 99, 146, 0.38);
+      border-radius: 11px;
+      background: rgba(17, 22, 39, 0.52);
+      padding: 12px;
+      min-height: 128px;
+    }
+    .info-row { margin: 0 0 8px; font-size: 13px; color: #d2ddfb; }
+    .info-row:last-child { margin-bottom: 0; }
+
+    .toast-wrap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      min-width: 220px;
+      max-width: 360px;
+      border-radius: 11px;
+      padding: 10px 12px;
+      border: 1px solid;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      animation: slideIn 0.18s ease;
+      background: rgba(17, 22, 39, 0.96);
+    }
+    .toast.ok { border-color: rgba(54, 201, 141, 0.5); color: #bff6dd; }
+    .toast.err { border-color: rgba(226, 85, 99, 0.55); color: #ffb2ba; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 13, 27, 0.46);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .loading-mask.show { display: flex; }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid rgba(233, 238, 249, 0.2);
+      border-top-color: #7ad2f9;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .container { width: 94vw; margin-top: 20px; }
+      .nav-links { width: 100%; }
+      .nav-links .btn { flex: 1; min-width: 100px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <div>
+        <h1 class="title">频道管理</h1>
+        <p class="subtitle">账号 ID：{{ account_id }}</p>
+      </div>
+      <nav class="nav-links">
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/tasks">任务</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/downloads">下载</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/config">配置</a>
+        <a class="btn btn-primary" href="/account/{{ account_id }}/chats">频道</a>
+        <a class="btn btn-ghost" href="/">仪表盘</a>
+      </nav>
+    </header>
+
+    <section class="panel">
+      <h2 class="section-title">频道列表</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>频道 ID</th>
+            <th>最后读取 ID</th>
+            <th>过滤器</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="chatsBody"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">新增频道</h2>
+      <form id="addChatForm" class="grid" novalidate>
+        <div class="field">
+          <label class="label" for="chatId">chat_id</label>
+          <input id="chatId" class="input" type="text" required>
+        </div>
+        <div class="field">
+          <label class="label" for="downloadFilter">download_filter（可选）</label>
+          <input id="downloadFilter" class="input" type="text">
+        </div>
+        <div>
+          <button class="btn btn-primary" type="submit">添加频道</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">信息查询工具</h2>
+      <form id="infoForm" class="grid" novalidate>
+        <div class="field">
+          <label class="label" for="infoInput">链接 / ID</label>
+          <input id="infoInput" class="input" type="text" required>
+        </div>
+        <div>
+          <button class="btn btn-ghost" type="submit">获取信息</button>
+        </div>
+      </form>
+      <div id="infoCard" class="info-card" style="margin-top:12px;">
+        <p class="info-row" style="color:var(--muted);">请输入链接或 ID 后获取信息。</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="loadingMask" class="loading-mask" aria-hidden="true">
+    <div class="spinner" aria-label="加载中"></div>
+  </div>
+  <div id="toastWrap" class="toast-wrap"></div>
+
+  <script>
+    (function () {
+      const accountId = {{ account_id | tojson }};
+      let chats = {{ chats | default([], true) | tojson }};
+
+      const chatsBody = document.getElementById('chatsBody');
+      const infoCard = document.getElementById('infoCard');
+      const loadingMask = document.getElementById('loadingMask');
+      const toastWrap = document.getElementById('toastWrap');
+
+      let pendingCount = 0;
+      let loadingTimer = null;
+
+      function setLoading(show) {
+        if (show) {
+          pendingCount += 1;
+          if (!loadingTimer) {
+            loadingTimer = window.setTimeout(function () {
+              if (pendingCount > 0) {
+                loadingMask.classList.add('show');
+                loadingMask.setAttribute('aria-hidden', 'false');
+              }
+              loadingTimer = null;
+            }, 180);
+          }
+          return;
+        }
+
+        pendingCount = Math.max(0, pendingCount - 1);
+        if (pendingCount === 0) {
+          if (loadingTimer) {
+            window.clearTimeout(loadingTimer);
+            loadingTimer = null;
+          }
+          loadingMask.classList.remove('show');
+          loadingMask.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      function showToast(message, type) {
+        const node = document.createElement('div');
+        node.className = 'toast ' + (type === 'ok' ? 'ok' : 'err');
+        node.textContent = message;
+        toastWrap.appendChild(node);
+        window.setTimeout(function () {
+          node.style.opacity = '0';
+          node.style.transform = 'translateY(8px)';
+          window.setTimeout(function () { node.remove(); }, 180);
+        }, 2600);
+      }
+
+      async function requestJSON(url, options, withLoading) {
+        const useLoading = withLoading !== false;
+        if (useLoading) setLoading(true);
+        try {
+          const response = await fetch(url, options || {});
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (e) {
+            data = { ok: false, error: '服务返回格式异常。' };
+          }
+          if (!response.ok) {
+            data.ok = false;
+            if (!data.error) data.error = '请求失败，请稍后重试。';
+          }
+          return data;
+        } catch (e) {
+          return { ok: false, error: '网络异常，请稍后重试。' };
+        } finally {
+          if (useLoading) setLoading(false);
+        }
+      }
+
+      function renderChats() {
+        if (!chats || chats.length === 0) {
+          chatsBody.innerHTML = '<tr><td colspan="4"><div class="empty">暂无频道配置</div></td></tr>';
+          return;
+        }
+
+        chatsBody.innerHTML = chats.map(function (chat) {
+          const id = chat.chat_id || '';
+          return (
+            '<tr>' +
+              '<td style="word-break:break-all;">' + id + '</td>' +
+              '<td>' + Number(chat.last_read_message_id || 0) + '</td>' +
+              '<td style="word-break:break-all;">' + (chat.download_filter || '-') + '</td>' +
+              '<td><button type="button" class="btn btn-danger" data-remove-chat="' + String(id).replace(/"/g, '&quot;') + '">移除</button></td>' +
+            '</tr>'
+          );
+        }).join('');
+
+        chatsBody.querySelectorAll('[data-remove-chat]').forEach(function (btn) {
+          btn.addEventListener('click', async function () {
+            const chatId = this.dataset.removeChat;
+            if (!chatId) return;
+            const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/chats/remove', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: chatId })
+            });
+            if (!data.ok) {
+              showToast(data.error || '移除频道失败。', 'err');
+              return;
+            }
+            chats = chats.filter(function (item) { return String(item.chat_id) !== String(chatId); });
+            renderChats();
+            showToast('频道已移除。', 'ok');
+          });
+        });
+      }
+
+      document.getElementById('addChatForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const chatId = document.getElementById('chatId').value.trim();
+        const downloadFilter = document.getElementById('downloadFilter').value.trim();
+        if (!chatId) {
+          showToast('请填写 chat_id。', 'err');
+          return;
+        }
+
+        const payload = { chat_id: chatId, download_filter: downloadFilter };
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/chats/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!data.ok) {
+          showToast(data.error || '添加频道失败。', 'err');
+          return;
+        }
+
+        const row = data.chat || payload;
+        chats.push({
+          chat_id: row.chat_id || chatId,
+          last_read_message_id: Number(row.last_read_message_id || 0),
+          download_filter: row.download_filter || downloadFilter
+        });
+        renderChats();
+        document.getElementById('chatId').value = '';
+        document.getElementById('downloadFilter').value = '';
+        showToast('频道已添加。', 'ok');
+      });
+
+      document.getElementById('infoForm').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const query = document.getElementById('infoInput').value.trim();
+        if (!query) {
+          showToast('请输入链接或 ID。', 'err');
+          return;
+        }
+
+        const data = await requestJSON('/account/' + encodeURIComponent(accountId) + '/tools/get_info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat: query })
+        });
+        if (!data.ok) {
+          showToast(data.error || '获取信息失败。', 'err');
+          return;
+        }
+
+        const info = data.info || data.data || data;
+        infoCard.innerHTML = [
+          '<p class="info-row"><strong>ID：</strong>' + (info.id || info.chat_id || '-') + '</p>',
+          '<p class="info-row"><strong>标题：</strong>' + (info.title || '-') + '</p>',
+          '<p class="info-row"><strong>用户名：</strong>' + (info.username || '-') + '</p>',
+          '<p class="info-row"><strong>类型：</strong>' + (info.type || '-') + '</p>',
+          '<p class="info-row"><strong>成员数：</strong>' + (info.members || info.participants_count || '-') + '</p>'
+        ].join('');
+        showToast('信息获取成功。', 'ok');
+      });
+
+      renderChats();
+    })();
+  </script>
+</body>
+</html>

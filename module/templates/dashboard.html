@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多账号管理仪表盘</title>
+  <style>
+    :root {
+      --bg: #161a2d;
+      --panel: #1f2742;
+      --panel-soft: #252f50;
+      --line: #2f3a63;
+      --text: #e8ecf8;
+      --muted: #a3afcf;
+      --primary: #2aabee;
+      --primary-strong: #1a8cc8;
+      --danger: #e25563;
+      --danger-strong: #be3947;
+      --warn: #f4c84b;
+      --ok: #36c98d;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42, 171, 238, 0.16), transparent 40%),
+        radial-gradient(circle at 90% 120%, rgba(54, 201, 141, 0.1), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(1160px, 92vw);
+      margin: 28px auto 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 30px);
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .security-note {
+      margin: 0 0 18px;
+      border: 1px solid rgba(42, 171, 238, 0.35);
+      background: rgba(42, 171, 238, 0.14);
+      border-radius: 12px;
+      color: #c6e9fb;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.18s ease;
+      color: #fff;
+      background: var(--panel-soft);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    .btn-primary { background: linear-gradient(135deg, var(--primary), #238fc7); }
+    .btn-primary:hover { background: linear-gradient(135deg, #37b4f1, #2a9ed9); }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: var(--danger-strong); }
+    .btn-ghost { background: #2a3358; }
+    .btn-ghost:hover { background: #33406e; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(37, 47, 80, 0.82), rgba(31, 39, 66, 0.95));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .account-id {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .phone {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      word-break: break-all;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 99px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge-pending { background: rgba(244, 200, 75, 0.16); color: var(--warn); border: 1px solid rgba(244, 200, 75, 0.45); }
+    .badge-authenticated { background: rgba(54, 201, 141, 0.16); color: var(--ok); border: 1px solid rgba(54, 201, 141, 0.45); }
+    .badge-failed { background: rgba(226, 85, 99, 0.18); color: #ff98a2; border: 1px solid rgba(226, 85, 99, 0.42); }
+    .badge-unknown { background: rgba(163, 175, 207, 0.14); color: var(--muted); border: 1px solid rgba(163, 175, 207, 0.3); }
+
+    .meta {
+      padding: 11px 12px;
+      border-radius: 11px;
+      background: rgba(17, 22, 39, 0.52);
+      border: 1px solid rgba(83, 99, 146, 0.38);
+      font-size: 13px;
+      color: #c9d3f0;
+      min-height: 74px;
+    }
+
+    .meta-row { margin: 0 0 6px; }
+    .meta-row:last-child { margin: 0; }
+
+    .actions {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .actions .btn { flex: 1; min-width: 60px; }
+
+    .empty {
+      grid-column: 1 / -1;
+      background: rgba(30, 37, 63, 0.88);
+      border: 1px dashed rgba(163, 175, 207, 0.35);
+      border-radius: var(--radius);
+      padding: 28px 16px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      padding: 16px;
+    }
+
+    .modal.open { display: flex; }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 7, 17, 0.72);
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-panel {
+      position: relative;
+      width: min(440px, 100%);
+      background: linear-gradient(180deg, #212b4a, #1b2440);
+      border: 1px solid #3a4876;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      z-index: 1;
+    }
+
+    .modal-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+
+    .field { margin-bottom: 12px; }
+    .label {
+      display: block;
+      font-size: 13px;
+      color: #c8d3ef;
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      background: #111733;
+      border: 1px solid #3a4876;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 11px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    .input:focus {
+      border-color: #49bdf3;
+      box-shadow: 0 0 0 3px rgba(42, 171, 238, 0.2);
+    }
+
+    .error-box {
+      display: none;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      background: rgba(226, 85, 99, 0.16);
+      border: 1px solid rgba(226, 85, 99, 0.45);
+      color: #ffb2ba;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .container { width: 94vw; margin-top: 20px; }
+      .actions .btn { min-width: 45%; }
+      .topbar { align-items: stretch; }
+      .topbar .btn-primary { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <div>
+        <h1 class="title">Telegram 多账号管理</h1>
+        <p class="subtitle">集中管理认证状态、Bot 配置与账号控制</p>
+      </div>
+      <button id="openAddModalBtn" type="button" class="btn btn-primary">添加账号</button>
+    </header>
+
+    {% if web_login_secret %}
+    <div class="security-note">当前已启用网页登录保护，仅登录用户可访问本页。</div>
+    {% endif %}
+
+    <section class="cards">
+      {% if accounts and accounts|length > 0 %}
+        {% for account in accounts %}
+          {% set status = account.status or 'unknown' %}
+          <article class="card" data-account-id="{{ account.account_id }}">
+            <div class="card-head">
+              <div>
+                <h2 class="account-id">账号 #{{ account.account_id }}</h2>
+                <p class="phone">手机号：{{ account.phone or '未设置' }}</p>
+              </div>
+              <span class="badge badge-{{ status }}">
+                {% if status == 'pending' %}待处理{% elif status == 'authenticated' %}已认证{% elif status == 'failed' %}失败{% else %}未知{% endif %}
+              </span>
+            </div>
+
+            <div class="meta">
+              <p class="meta-row">Bot 状态：{% if account.bot_token %}<span style="color:#7ff3c0;">已配置</span>{% else %}<span style="color:#f4c84b;">未配置</span>{% endif %}</p>
+              <p class="meta-row">Bot 用户名：{{ account.session_name or '未提供' }}</p>
+            </div>
+
+            <div class="actions">
+              <a class="btn btn-ghost" href="/account/{{ account.account_id }}/tasks">任务</a>
+              <a class="btn btn-ghost" href="/account/{{ account.account_id }}/downloads">下载</a>
+              <a class="btn btn-ghost" href="/account/{{ account.account_id }}/config">配置</a>
+              <a class="btn btn-ghost" href="/account/{{ account.account_id }}/chats">频道</a>
+              <a class="btn btn-ghost" href="/account/{{ account.account_id }}/setup">认证</a>
+              <button class="btn btn-primary js-toggle" type="button" data-account-id="{{ account.account_id }}" data-running="{% if account.running %}1{% else %}0{% endif %}">{% if account.running %}停止{% else %}启动{% endif %}</button>
+              <button class="btn btn-danger js-remove" type="button" data-account-id="{{ account.account_id }}">删除</button>
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="empty">
+          <p style="margin:0 0 8px; font-size:16px; color:#d5def6;">暂无账号</p>
+          <p style="margin:0;">点击上方“添加账号”开始接入 Telegram 账户。</p>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+
+  <div id="addModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="addModalTitle">
+      <h3 id="addModalTitle" class="modal-title">添加账号</h3>
+      <div id="addError" class="error-box"></div>
+      <form id="addForm" novalidate>
+        <div class="field">
+          <label class="label" for="apiIdInput">API ID</label>
+          <input id="apiIdInput" class="input" name="api_id" type="number" min="1" required>
+        </div>
+        <div class="field">
+          <label class="label" for="apiHashInput">API HASH</label>
+          <input id="apiHashInput" class="input" name="api_hash" type="text" required>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelAddBtn" type="button" class="btn btn-ghost">取消</button>
+          <button id="submitAddBtn" type="submit" class="btn btn-primary">提交</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const addModal = document.getElementById('addModal');
+      const openAddModalBtn = document.getElementById('openAddModalBtn');
+      const cancelAddBtn = document.getElementById('cancelAddBtn');
+      const addForm = document.getElementById('addForm');
+      const submitAddBtn = document.getElementById('submitAddBtn');
+      const addError = document.getElementById('addError');
+      const apiIdInput = document.getElementById('apiIdInput');
+      const apiHashInput = document.getElementById('apiHashInput');
+
+      function showAddError(message) {
+        addError.textContent = message || '请求失败，请稍后重试。';
+        addError.style.display = 'block';
+      }
+
+      function clearAddError() {
+        addError.textContent = '';
+        addError.style.display = 'none';
+      }
+
+      function openModal() {
+        clearAddError();
+        addModal.classList.add('open');
+        addModal.setAttribute('aria-hidden', 'false');
+        window.setTimeout(function () { apiIdInput.focus(); }, 0);
+      }
+
+      function closeModal() {
+        addModal.classList.remove('open');
+        addModal.setAttribute('aria-hidden', 'true');
+      }
+
+      openAddModalBtn.addEventListener('click', openModal);
+      cancelAddBtn.addEventListener('click', closeModal);
+
+      addModal.addEventListener('click', function (event) {
+        if (event.target.dataset.close === '1') {
+          closeModal();
+        }
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && addModal.classList.contains('open')) {
+          closeModal();
+        }
+      });
+
+      addForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        clearAddError();
+
+        const apiId = Number(apiIdInput.value);
+        const apiHash = apiHashInput.value.trim();
+        if (!apiId || !apiHash) {
+          showAddError('请完整填写 API ID 和 API HASH。');
+          return;
+        }
+
+        submitAddBtn.disabled = true;
+        submitAddBtn.textContent = '提交中...';
+        try {
+          const response = await fetch('/account/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_id: apiId, api_hash: apiHash })
+          });
+
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            showAddError(data.error || '添加账号失败。');
+            return;
+          }
+
+          const newId = data.account_id || data.id || (data.data && (data.data.account_id || data.data.id));
+          if (!newId) {
+            showAddError('未返回账号ID，无法跳转配置页。');
+            return;
+          }
+          window.location.href = '/account/' + encodeURIComponent(newId) + '/setup';
+        } catch (error) {
+          showAddError('网络异常，请稍后重试。');
+        } finally {
+          submitAddBtn.disabled = false;
+          submitAddBtn.textContent = '提交';
+        }
+      });
+
+      document.querySelectorAll('.js-remove').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const accountId = this.dataset.accountId;
+          if (!accountId) return;
+
+          const ok = window.confirm('确认删除账号 #' + accountId + ' 吗？此操作不可撤销。');
+          if (!ok) return;
+
+          this.disabled = true;
+          const oldText = this.textContent;
+          this.textContent = '删除中...';
+          try {
+            const response = await fetch('/account/' + encodeURIComponent(accountId) + '/remove', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({})
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+              window.alert(data.error || '删除失败。');
+              this.disabled = false;
+              this.textContent = oldText;
+              return;
+            }
+            window.location.reload();
+          } catch (error) {
+            window.alert('网络异常，请稍后重试。');
+            this.disabled = false;
+            this.textContent = oldText;
+          }
+        });
+      });
+
+      document.querySelectorAll('.js-toggle').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          const accountId = this.dataset.accountId;
+          const isRunning = this.dataset.running === '1';
+          const action = isRunning ? 'stop' : 'start';
+          const targetText = isRunning ? '停止' : '启动';
+          if (!accountId) return;
+
+          this.disabled = true;
+          this.textContent = targetText + '中...';
+          try {
+            const response = await fetch('/account/' + encodeURIComponent(accountId) + '/' + action, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({})
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+              window.alert(data.error || targetText + '失败。');
+              this.textContent = isRunning ? '停止' : '启动';
+              this.disabled = false;
+              return;
+            }
+            this.dataset.running = isRunning ? '0' : '1';
+            this.textContent = isRunning ? '启动' : '停止';
+            this.disabled = false;
+          } catch (error) {
+            window.alert('网络异常，请稍后重试。');
+            this.textContent = isRunning ? '停止' : '启动';
+            this.disabled = false;
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

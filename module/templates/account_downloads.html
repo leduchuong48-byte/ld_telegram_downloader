@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>下载监控 - 账号 {{ account_id }}</title>
+  <style>
+    :root {
+      --bg: #161a2d;
+      --panel: #1f2742;
+      --panel-soft: #252f50;
+      --line: #2f3a63;
+      --text: #e8ecf8;
+      --muted: #a3afcf;
+      --primary: #2aabee;
+      --primary-strong: #1a8cc8;
+      --danger: #e25563;
+      --danger-strong: #be3947;
+      --warn: #f4c84b;
+      --ok: #36c98d;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(42, 171, 238, 0.16), transparent 40%),
+        radial-gradient(circle at 90% 120%, rgba(54, 201, 141, 0.1), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container { width: min(1160px, 92vw); margin: 24px auto 36px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .title { margin: 0; font-size: clamp(20px, 2.8vw, 28px); }
+    .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.18s ease;
+      color: #fff;
+      background: var(--panel-soft);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .btn-primary { background: linear-gradient(135deg, var(--primary), #238fc7); }
+    .btn-primary:hover { background: linear-gradient(135deg, #37b4f1, #2a9ed9); }
+    .btn-ghost { background: #2a3358; }
+    .btn-ghost:hover { background: #33406e; }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(37, 47, 80, 0.82), rgba(31, 39, 66, 0.95));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .status-card {
+      padding: 12px;
+      border-radius: 11px;
+      border: 1px solid rgba(83, 99, 146, 0.38);
+      background: rgba(17, 22, 39, 0.52);
+    }
+    .status-label { margin: 0 0 8px; color: #bdd0f8; font-size: 13px; }
+    .status-value { margin: 0; font-size: 20px; font-weight: 700; }
+
+    .section-title { margin: 0 0 12px; font-size: 18px; }
+    .download-list { display: grid; gap: 10px; }
+
+    .item {
+      border: 1px solid rgba(83, 99, 146, 0.35);
+      border-radius: 11px;
+      background: rgba(17, 22, 39, 0.52);
+      padding: 12px;
+      transition: border-color 0.18s ease, transform 0.18s ease;
+    }
+    .item:hover { border-color: rgba(42, 171, 238, 0.55); transform: translateY(-1px); }
+    .item-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .filename { margin: 0; font-size: 14px; font-weight: 600; word-break: break-all; }
+    .meta { margin: 0; color: var(--muted); font-size: 12px; }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(163, 175, 207, 0.18);
+      overflow: hidden;
+      margin: 8px 0 6px;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--primary), #5dc8f6);
+      transition: width 0.28s ease;
+      width: 0%;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 14px 0 8px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 12px;
+      text-align: center;
+      border: 1px dashed rgba(163, 175, 207, 0.35);
+      border-radius: 10px;
+      background: rgba(17, 22, 39, 0.45);
+    }
+
+    .toast-wrap {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      min-width: 220px;
+      max-width: 360px;
+      border-radius: 11px;
+      padding: 10px 12px;
+      border: 1px solid;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      animation: slideIn 0.18s ease;
+      background: rgba(17, 22, 39, 0.96);
+    }
+    .toast.ok { border-color: rgba(54, 201, 141, 0.5); color: #bff6dd; }
+    .toast.err { border-color: rgba(226, 85, 99, 0.55); color: #ffb2ba; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .loading-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 13, 27, 0.46);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .loading-mask.show { display: flex; }
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid rgba(233, 238, 249, 0.2);
+      border-top-color: #7ad2f9;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 860px) {
+      .status-grid { grid-template-columns: 1fr; }
+      .container { width: 94vw; margin-top: 20px; }
+      .nav-links { width: 100%; }
+      .nav-links .btn { flex: 1; min-width: 100px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <div>
+        <h1 class="title">下载监控面板</h1>
+        <p class="subtitle">账号 ID：{{ account_id }}</p>
+      </div>
+      <nav class="nav-links">
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/tasks">任务</a>
+        <a class="btn btn-primary" href="/account/{{ account_id }}/downloads">下载</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/config">配置</a>
+        <a class="btn btn-ghost" href="/account/{{ account_id }}/chats">频道</a>
+        <a class="btn btn-ghost" href="/">仪表盘</a>
+      </nav>
+    </header>
+
+    <section class="panel">
+      <div class="status-grid">
+        <div class="status-card">
+          <p class="status-label">总下载速度</p>
+          <p id="totalSpeed" class="status-value">--</p>
+        </div>
+        <div class="status-card">
+          <p class="status-label">进行中任务数</p>
+          <p id="activeCount" class="status-value">0</p>
+        </div>
+        <div class="status-card">
+          <p class="status-label">下载状态</p>
+          <p id="downloadState" class="status-value">运行中</p>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <button id="togglePauseBtn" class="btn btn-primary" type="button">暂停下载</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="section-title">实时下载列表</h2>
+      <div id="activeList" class="download-list"></div>
+
+      <div class="toggle-row">
+        <h2 class="section-title" style="margin:0;">已完成下载</h2>
+        <button id="toggleCompletedBtn" class="btn btn-ghost" type="button">展开</button>
+      </div>
+      <div id="completedList" class="download-list" style="display:none;"></div>
+    </section>
+  </main>
+
+  <div id="loadingMask" class="loading-mask" aria-hidden="true">
+    <div class="spinner" aria-label="加载中"></div>
+  </div>
+  <div id="toastWrap" class="toast-wrap"></div>
+
+  <script>
+    (function () {
+      const ACCOUNT_ID = '{{ account_id }}';
+      const BASE = '/account/' + encodeURIComponent(ACCOUNT_ID);
+      const loadingMask = document.getElementById('loadingMask');
+      const toastWrap = document.getElementById('toastWrap');
+      const totalSpeedEl = document.getElementById('totalSpeed');
+      const activeCountEl = document.getElementById('activeCount');
+      const downloadStateEl = document.getElementById('downloadState');
+      const togglePauseBtn = document.getElementById('togglePauseBtn');
+      const toggleCompletedBtn = document.getElementById('toggleCompletedBtn');
+      const activeList = document.getElementById('activeList');
+      const completedList = document.getElementById('completedList');
+
+      let paused = false;
+      let completedVisible = false;
+      let pendingCount = 0;
+      let loadingTimer = null;
+
+      function setLoading(show) {
+        if (show) {
+          pendingCount += 1;
+          if (!loadingTimer) {
+            loadingTimer = window.setTimeout(function () {
+              if (pendingCount > 0) {
+                loadingMask.classList.add('show');
+                loadingMask.setAttribute('aria-hidden', 'false');
+              }
+              loadingTimer = null;
+            }, 180);
+          }
+          return;
+        }
+
+        pendingCount = Math.max(0, pendingCount - 1);
+        if (pendingCount === 0) {
+          if (loadingTimer) {
+            window.clearTimeout(loadingTimer);
+            loadingTimer = null;
+          }
+          loadingMask.classList.remove('show');
+          loadingMask.setAttribute('aria-hidden', 'true');
+        }
+      }
+
+      function showToast(message, type) {
+        const node = document.createElement('div');
+        node.className = 'toast ' + (type === 'ok' ? 'ok' : 'err');
+        node.textContent = message;
+        toastWrap.appendChild(node);
+        window.setTimeout(function () {
+          node.style.opacity = '0';
+          node.style.transform = 'translateY(8px)';
+          window.setTimeout(function () { node.remove(); }, 180);
+        }, 2600);
+      }
+
+      async function requestJSON(url, options, withLoading) {
+        const useLoading = withLoading !== false;
+        if (useLoading) setLoading(true);
+        try {
+          const response = await fetch(url, options || {});
+          let data = {};
+          try {
+            data = await response.json();
+          } catch (e) {
+            data = { ok: false, error: '服务返回格式异常。' };
+          }
+          if (!response.ok) {
+            data.ok = false;
+            if (!data.error) data.error = '请求失败，请稍后重试。';
+          }
+          return data;
+        } catch (e) {
+          return { ok: false, error: '网络异常，请稍后重试。' };
+        } finally {
+          if (useLoading) setLoading(false);
+        }
+      }
+
+      function formatSize(value) {
+        const num = Number(value || 0);
+        if (!num || num < 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let n = num;
+        let i = 0;
+        while (n >= 1024 && i < units.length - 1) {
+          n /= 1024;
+          i += 1;
+        }
+        return n.toFixed(i === 0 ? 0 : 2) + ' ' + units[i];
+      }
+
+      function formatETA(seconds) {
+        const s = Math.max(0, Math.round(seconds || 0));
+        if (s <= 0) return '--';
+        if (s < 60) return s + '秒';
+        if (s < 3600) return Math.floor(s / 60) + '分' + (s % 60) + '秒';
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        return h + '时' + m + '分';
+      }
+
+      function itemCard(item) {
+        const filename = item.file_name || '未命名文件';
+        const chat = item.chat_id || '-';
+        const total = Number(item.total_bytes || 0);
+        const downloaded = Number(item.downloaded_bytes || 0);
+        const percent = Number(item.progress_pct || 0);
+        const speed = item.speed_bps != null ? formatSize(item.speed_bps) + '/s' : '--';
+        const eta = item.eta_seconds > 0 ? formatETA(item.eta_seconds) : '--';
+        const taskId = item.task_id || '-';
+
+        const isComplete = downloaded >= total && total > 0;
+        const fillColor = isComplete
+          ? 'background: linear-gradient(90deg, var(--ok), #5de8b0);'
+          : 'background: linear-gradient(90deg, var(--primary), #5dc8f6);';
+
+        return (
+          '<article class="item">' +
+            '<div class="item-head">' +
+              '<p class="filename">' + filename + '</p>' +
+              '<p class="meta">任务 #' + taskId + '</p>' +
+            '</div>' +
+            '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:4px;">' +
+              '<p class="meta">频道：' + chat + '</p>' +
+              '<p class="meta">大小：' + formatSize(downloaded) + ' / ' + formatSize(total) + '</p>' +
+              (isComplete ? '' : '<p class="meta">速度：' + speed + '</p>') +
+              (isComplete ? '' : '<p class="meta">剩余：' + eta + '</p>') +
+            '</div>' +
+            '<div class="progress-track"><div class="progress-fill" style="width:' + percent.toFixed(1) + '%;' + fillColor + '"></div></div>' +
+            '<p class="meta">进度：' + percent.toFixed(1) + '%</p>' +
+          '</article>'
+        );
+      }
+
+      function renderList(target, list, emptyText) {
+        if (!list || list.length === 0) {
+          target.innerHTML = '<div class="empty">' + emptyText + '</div>';
+          return;
+        }
+        target.innerHTML = list.map(itemCard).join('');
+      }
+
+      async function refreshAll() {
+        // Fetch status + list in parallel
+        const [statusData, listData] = await Promise.all([
+          requestJSON(BASE + '/downloads/status', { method: 'GET' }, false),
+          requestJSON(BASE + '/downloads/list', { method: 'GET' }, false)
+        ]);
+
+        // Update status header
+        if (statusData.ok) {
+          totalSpeedEl.textContent = statusData.total_speed_display || formatSize(statusData.total_speed_bps || 0) + '/s';
+          activeCountEl.textContent = String(statusData.active_count || 0);
+
+          const state = (statusData.state || 'idle').toLowerCase();
+          paused = state === 'paused';
+          if (state === 'running') {
+            downloadStateEl.textContent = '运行中';
+            downloadStateEl.style.color = 'var(--ok)';
+          } else if (state === 'paused') {
+            downloadStateEl.textContent = '已暂停';
+            downloadStateEl.style.color = 'var(--warn)';
+          } else {
+            downloadStateEl.textContent = '空闲';
+            downloadStateEl.style.color = 'var(--muted)';
+          }
+          togglePauseBtn.textContent = paused ? '继续下载' : '暂停下载';
+        }
+
+        // Update download lists
+        if (listData.ok) {
+          const activeItems = listData.active || [];
+          const completedItems = listData.completed || [];
+
+          renderList(activeList, activeItems, '当前没有进行中的下载任务');
+
+          if (completedVisible) {
+            renderList(completedList, completedItems, '暂无已完成下载记录');
+          }
+
+          // Update active count from actual data
+          activeCountEl.textContent = String(activeItems.length);
+        }
+      }
+
+      togglePauseBtn.addEventListener('click', async function () {
+        const endpoint = paused ? '/downloads/continue' : '/downloads/pause';
+        const data = await requestJSON(BASE + endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        if (!data.ok) {
+          showToast(data.error || '切换下载状态失败。', 'err');
+          return;
+        }
+        const newState = (data.state || '').toLowerCase();
+        paused = newState === 'paused';
+        downloadStateEl.textContent = paused ? '已暂停' : '运行中';
+        downloadStateEl.style.color = paused ? 'var(--warn)' : 'var(--ok)';
+        togglePauseBtn.textContent = paused ? '继续下载' : '暂停下载';
+        showToast(paused ? '下载已暂停。' : '下载已继续。', 'ok');
+      });
+
+      toggleCompletedBtn.addEventListener('click', function () {
+        completedVisible = !completedVisible;
+        completedList.style.display = completedVisible ? 'grid' : 'none';
+        toggleCompletedBtn.textContent = completedVisible ? '收起' : '展开';
+        if (completedVisible) refreshAll();
+      });
+
+      refreshAll();
+      window.setInterval(refreshAll, 2000);
+    })();
+  </script>
+</body>
+</html>

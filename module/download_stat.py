@@ -1,11 +1,22 @@
 """Download Stat"""
+
 import asyncio
 import time
 from enum import Enum
 
+from loguru import logger
 from pyrogram import Client
 
 from module.app import TaskNode
+
+
+def _fmt_size(n: int) -> str:
+    """Format bytes to human-readable string."""
+    for unit in ("B", "KB", "MB", "GB"):
+        if abs(n) < 1024:
+            return f"{n:.1f}{unit}"
+        n /= 1024
+    return f"{n:.1f}TB"
 
 
 class DownloadState(Enum):
@@ -19,6 +30,7 @@ _download_result: dict = {}
 _total_download_speed: int = 0
 _total_download_size: int = 0
 _last_download_time: float = time.time()
+_progress_log_times: dict = {}
 _download_state: DownloadState = DownloadState.Downloading
 
 
@@ -59,6 +71,7 @@ async def update_download_status(
     global _total_download_speed
     global _total_download_size
     global _last_download_time
+    global _progress_log_times
 
     if node.is_stop_transmission:
         client.stop_transmission()
@@ -95,9 +108,9 @@ async def update_download_status(
         _download_result[chat_id][message_id]["down_byte"] = down_byte
         _download_result[chat_id][message_id]["end_time"] = end_time
         _download_result[chat_id][message_id]["download_speed"] = download_speed
-        _download_result[chat_id][message_id][
-            "each_second_total_download"
-        ] = each_second_total_download
+        _download_result[chat_id][message_id]["each_second_total_download"] = (
+            each_second_total_download
+        )
     else:
         each_second_total_download = down_byte
         _download_result[chat_id][message_id] = {
@@ -120,3 +133,20 @@ async def update_download_status(
         _total_download_speed = max(_total_download_speed, 0)
         _total_download_size = 0
         _last_download_time = cur_time
+
+    # Log progress every 5 seconds per message
+    _log_key = f"{chat_id}_{message_id}"
+    _last_log = _progress_log_times.get(_log_key, 0)
+    if cur_time - _last_log >= 5.0:
+        pct = (down_byte / total_size * 100) if total_size > 0 else 0
+        speed = _download_result[chat_id][message_id].get("download_speed", 0)
+        logger.info(
+            "下载中 msg_id={} {:.1f}% ({}/{}) {}/s | {}",
+            message_id,
+            pct,
+            _fmt_size(down_byte),
+            _fmt_size(total_size),
+            _fmt_size(int(speed)),
+            file_name,
+        )
+        _progress_log_times[_log_key] = cur_time

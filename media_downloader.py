@@ -1,4 +1,5 @@
 """Downloads media from telegram."""
+
 import asyncio
 import logging
 import os
@@ -391,19 +392,24 @@ async def save_msg_to_file(
 
 
 async def download_task(
-    client: pyrogram.Client, message: pyrogram.types.Message, node: TaskNode
+    client: pyrogram.Client,
+    message: pyrogram.types.Message,
+    node: TaskNode,
+    app_override: "Application" = None,
 ):
     """Download and Forward media"""
 
+    _app = app_override or app
+
     download_status, file_name = await download_media(
-        client, message, app.media_types, app.file_formats, node
+        client, message, _app.media_types, _app.file_formats, node
     )
 
-    if app.enable_download_txt and message.text and not message.media:
-        download_status, file_name = await save_msg_to_file(app, node.chat_id, message)
+    if _app.enable_download_txt and message.text and not message.media:
+        download_status, file_name = await save_msg_to_file(_app, node.chat_id, message)
 
     if not node.bot:
-        app.set_download_id(node, message.id, download_status)
+        _app.set_download_id(node, message.id, download_status)
 
     node.download_status[message.id] = download_status
 
@@ -418,7 +424,7 @@ async def download_task(
     if download_status is DownloadStatus.SkipDownload and node.bot:
         await report_bot_status(node.bot, node, immediate_reply=True)
 
-    if node.upload_telegram_chat_id or app.cloud_drive_config.enable_upload_file:
+    if node.upload_telegram_chat_id or _app.cloud_drive_config.enable_upload_file:
         await add_upload_task(message, node, download_status, file_name)
 
 
@@ -702,7 +708,9 @@ async def upload_worker(client: pyrogram.client.Client):
                 continue
 
             if node.client:
-                await upload_task(node.client, message, node, download_status, file_name)
+                await upload_task(
+                    node.client, message, node, download_status, file_name
+                )
             else:
                 await upload_task(client, message, node, download_status, file_name)
         except Exception as e:
@@ -765,9 +773,9 @@ async def download_chat_task(
                 await download_task(client, message, node)
         else:
             node.download_status[message.id] = DownloadStatus.SkipDownload
-            if (
-                message.media_group_id
-                and (node.upload_telegram_chat_id or app.cloud_drive_config.enable_upload_file)
+            if message.media_group_id and (
+                node.upload_telegram_chat_id
+                or app.cloud_drive_config.enable_upload_file
             ):
                 await add_upload_task(message, node, DownloadStatus.SkipDownload, None)
 
@@ -882,6 +890,160 @@ def main():
         )
 
 
+def _load_global_config() -> dict:
+    """Load global config.yaml for web settings."""
+    try:
+        from ruamel import yaml as _ryaml
+
+        _y = _ryaml.YAML()
+        with open(CONFIG_NAME, encoding="utf-8") as f:
+            return _y.load(f.read()) or {}
+    except Exception:
+        return {}
+
+
+def main_multi():
+    """Multi-account entry point.
+
+    Replaces the legacy single-account main() with:
+    1. AccountManager — loads/migrates accounts
+    2. WebAuthManager — handles runtime Telegram auth via WebUI
+    3. AccountInstance per account — independent client + bot + workers
+    4. Flask WebUI — dashboard + auth wizard
+    """
+    from module.account_manager import AccountManager, AccountStatus
+    from module.account_instance import AccountInstance
+    from module.web_auth import WebAuthManager
+    from module.web import init_web_multi
+
+    global_config = _load_global_config()
+
+    # Initialize the global app so download_task/download_media have
+    # valid media_types, file_formats, save_path etc.
+    _load_config()
+
+    # CRITICAL: When this file runs as __main__, the module-level `app` belongs
+    # to __main__.  But account_instance.py does `from media_downloader import
+    # download_task`, which causes Python to import this file AGAIN as the
+    # `media_downloader` module — creating a SECOND `app` object.  We must
+    # configure that second copy too, otherwise download_task sees empty
+    # media_types/file_formats.
+    import importlib
+    import sys
+
+    _md = sys.modules.get("media_downloader")
+    if _md is None:
+        _md = importlib.import_module("media_downloader")
+    if _md is not None and hasattr(_md, "app") and _md.app is not app:
+        _md.app.load_config()
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # ── account manager ──────────────────────────────────────────
+    manager = AccountManager(base_dir=".")
+    manager.load()
+
+    # migrate legacy config if no accounts exist yet
+    migrated_id = manager.migrate_legacy_config()
+    if migrated_id:
+        logger.info("Migrated legacy config to account '{}'", migrated_id)
+
+    # ── web auth manager ─────────────────────────────────────────
+    web_auth = WebAuthManager(manager, loop)
+
+    # ── running account instances ────────────────────────────────
+    instances: dict = {}  # account_id -> AccountInstance
+
+    def get_instance(account_id: str):
+        """Get a running AccountInstance by ID (used by web routes)."""
+        return instances.get(account_id)
+
+    async def start_account(account_id: str) -> bool:
+        """Start a single account instance (called from WebUI)."""
+        if account_id in instances:
+            logger.warning("Account {} already running", account_id)
+            return True
+
+        acc = manager.get_account(account_id)
+        if not acc or acc.status != AccountStatus.Authenticated.value:
+            logger.warning(
+                "Cannot start account {} (status={})",
+                account_id,
+                acc.status if acc else "not found",
+            )
+            return False
+
+        instance = AccountInstance(acc, manager)
+        result = await instance.start(loop)
+        if result:
+            instances[account_id] = instance
+        return result
+
+    async def stop_account(account_id: str):
+        """Stop a single account instance (called from WebUI)."""
+        instance = instances.pop(account_id, None)
+        if instance:
+            await instance.stop()
+
+    # ── start web server ─────────────────────────────────────────
+    web_host = global_config.get("web_host", "0.0.0.0")
+    web_port = int(global_config.get("web_port", 5000))
+    web_login_secret = str(global_config.get("web_login_secret", ""))
+
+    init_web_multi(
+        account_manager=manager,
+        web_auth_manager=web_auth,
+        loop=loop,
+        web_host=web_host,
+        web_port=web_port,
+        web_login_secret=web_login_secret,
+        start_account_cb=start_account,
+        stop_account_cb=stop_account,
+        get_instance_cb=get_instance,
+    )
+
+    logger.success("Web UI started at http://{}:{}", web_host, web_port)
+
+    # ── auto-start authenticated accounts ────────────────────────
+    async def auto_start():
+        for acc in manager.get_authenticated_accounts():
+            if manager.has_session_file(acc.account_id):
+                try:
+                    await start_account(acc.account_id)
+                except Exception as e:
+                    logger.error(
+                        "Failed to auto-start account {}: {}",
+                        acc.account_id,
+                        e,
+                    )
+
+    loop.run_until_complete(auto_start())
+
+    if instances:
+        logger.success("Started {} account(s)", len(instances))
+    else:
+        logger.info("No authenticated accounts. Open the Web UI to add accounts.")
+
+    # ── run forever ──────────────────────────────────────────────
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt")
+    finally:
+        # graceful shutdown
+        async def shutdown():
+            for aid, inst in list(instances.items()):
+                try:
+                    await inst.stop()
+                except Exception as e:
+                    logger.warning("Error stopping {}: {}", aid, e)
+
+        loop.run_until_complete(shutdown())
+        loop.close()
+        logger.info("Stopped!")
+
+
 if __name__ == "__main__":
-    if _check_config():
-        main()
+    # Multi-account mode is the new default
+    main_multi()
