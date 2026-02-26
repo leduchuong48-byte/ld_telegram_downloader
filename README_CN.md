@@ -1,265 +1,147 @@
-<h1 align="center">ld_tg_downloader-0.1</h1>
+# ld_tg_downloader
 
-<h3 align="center">
-  <a href="./README.md">English</a>
-</h3>
+> 面向 NAS/服务器的 Telegram 媒体下载与转发工具，核心是“全流程 WebUI + Bot 双入口”。
 
-## 概述
+[English](./README_en.md)
 
-> 支持两种默认运行
+## For Portainer/Synology Users
 
-* 机器人运行，从机器人下发命令`下载`或者`转发`
+Copy this into Portainer stacks and hit Deploy. Done.
 
-* 作为一个一次性的下载工具下载
-
-### 界面
-
-#### 网页
-
-> 运行后打开浏览器访问`localhost:5000`
-> 如果是远程机器需要配置web_host: 0.0.0.0
-
-
-<img alt="Code style: black" style="width:100%; high:60%;" src="./screenshot/web_ui.gif"/>
-
-### 机器人
-
-> 需要在 `config.yaml` 中配置 bot_token。
-
-
-<img alt="Code style: black" style="width:60%; high:30%; " src="./screenshot/bot.gif"/>
-
-### 支持
-
-| 类别         | 支持                                     |
-| ------------ | ---------------------------------------- |
-| 语言         | `Python 3.7` 及以上                      |
-| 下载媒体类型 | 音频、文档、照片、视频、video_note、语音 |
-
-## 安装
-
-对于具有 `make` 可用性的 *nix 操作系统发行版
-
-```sh
-git clone <your_repo_url>
-cd ld_tg_downloader-0.1
-make install
-```
-
-对于没有内置 `make` 的 Windows
-
-```sh
-git clone <your_repo_url>
-cd ld_tg_downloader-0.1
-pip3 install -r requirements.txt
-```
-## Docker容器
-
-确保安装了 **docker** 和 **docker-compose**
-```sh
-docker-compose build
-
-# 第一次需要前台启动
-# 输入你的电话号码和密码，然后退出(ctrl + c)
-docker-compose run --rm ld_tg_downloader
-
-# 执行完以上操作后，后面的所有启动都在后台启动
-docker-compose up -d
-
-# 升级
-docker-compose down
-docker-compose up -d
-```
-
-## 升级安装
-
-```sh
-cd ld_tg_downloader-0.1
-pip3 install -r requirements.txt
-```
-
-## 配置
-
-所有配置都通过 config.yaml 文件传递​​给 `ld_tg_downloader-0.1`。
-
-**获取您的 API 密钥：**
-第一步需要您获得有效的 Telegram API 密钥（API id/hash pair）：
-
-1. 访问 [https://my.telegram.org/apps](https://my.telegram.org/apps) 并使用您的 Telegram 帐户登录。
-2. 填写表格以注册新的 Telegram 应用程序。
-3. 完成！ API 密钥由两部分组成：**api_id** 和**api_hash**。
-
-**获取聊天ID：**
-> 如果你需要下载收藏夹的内容请填`me`
-
-**1。使用网络电报：**
-
-1. 打开 <https://web.telegram.org/?legacy=1#/im>
-2. 现在转到聊天/频道，您将看到 URL 类似
-
-- `https://web.telegram.org/?legacy=1#/im?p=u853521067_2449618633394` 这里 `853521067` 是聊天 ID。
-- `https://web.telegram.org/?legacy=1#/im?p=@somename` 这里的 `somename` 是聊天 ID。
-- `https://web.telegram.org/?legacy=1#/im?p=s1301254321_6925449697188775560` 此处取 `1301254321` 并将 `-100` 添加到 id => `-1001301254321` 的开头。
-- `https://web.telegram.org/?legacy=1#/im?p=c1301254321_6925449697188775560` 此处取 `1301254321` 并将 `-100` 添加到 id => `-1001301254321` 的开头。
-
-**2。使用机器人：**
-1.使用[@username_to_id_bot](https://t.me/username_to_id_bot)获取chat_id
-    - 几乎所有电报用户：将用户名发送给机器人或将他们的消息转发给机器人
-    - 任何聊天：发送聊天用户名或复制并发送其加入聊天链接到机器人
-    - 公共或私人频道：与聊天相同，只需复制并发送给机器人
-    - 任何电报机器人的 ID
-
-### 配置文件
+## Docker Compose
 
 ```yaml
-api_hash: your_api_hash
-api_id: your_api_id
-bot_token: your_bot_token
-chat:
-- chat_id: telegram_chat_id
-  last_read_message_id: 0
-  download_filter: message_date >= 2022-12-01 00:00:00 and message_date <= 2023-01-17 00:00:00
-- chat_id: telegram_chat_id_2
-  last_read_message_id: 0
-# 我们将ids_to_retry移到data.yaml
-ids_to_retry: []
+services:
+  ld_tg_downloader:
+    image: leduchuong/ld_tg_downloader:latest
+    container_name: ld_tg_downloader
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./config.yaml:/app/config.yaml
+      - ./accounts.yaml:/app/accounts.yaml
+      - ./data.yaml:/app/data.yaml
+      - ./configs:/app/configs
+      - ./sessions:/app/sessions
+      - ./temp:/app/temp
+      - ./log:/app/log
+```
+
+## 项目最大特点
+
+- 全流程 WebUI：登录后可在页面里完成账号添加、手机验证码登录、2FA 密码验证、Bot token 校验、任务创建、任务状态查看、配置修改。
+- Bot 操作入口：支持通过 Bot 指令触发下载、转发、监听转发、停止任务与清理策略。
+- 下载与转发一体化：既可以按频道历史区间下载，也可以做频道到频道转发和监听转发。
+- 多账号架构：每个账号独立配置和会话文件，便于隔离管理。
+- 可选云盘上传：支持通过 `upload_drive` 配置对接上传流程。
+
+## 快速开始
+
+1. 准备目录与文件。
+
+```bash
+mkdir -p downloads configs sessions temp log
+touch config.yaml accounts.yaml data.yaml
+```
+
+2. 参考下面最小配置，先设置 `api_id`、`api_hash`，并设置 WebUI 密码 `web_login_secret`。
+3. 启动容器：
+
+```bash
+docker compose up -d
+```
+
+4. 访问 `http://<你的主机IP>:5000` 进入 WebUI。
+
+## WebUI 初次登录密码如何设置
+
+WebUI 登录密码来自 `config.yaml` 的 `web_login_secret` 字段：
+
+- 为空：不启用登录保护（不建议）。
+- 非空：使用该密码登录 WebUI。
+
+修改后执行 `docker compose up -d --force-recreate` 使配置生效。
+
+## 最小配置示例（config.yaml）
+
+```yaml
+api_id: 123456
+api_hash: "your_api_hash"
+bot_token: ""
+chat: []
+
 media_types:
-- audio
-- document
-- photo
-- video
-- voice
-- animation #gif
+  - photo
+  - video
+  - document
+  - audio
+  - voice
+
 file_formats:
-  audio:
-  - all
-  document:
-  - pdf
-  - epub
-  video:
-  - mp4
-save_path: D:\ld_tg_downloader-0.1
-file_path_prefix:
-- chat_title
-- media_datetime
-upload_drive:
-  enable_upload_file: true
-  remote_dir: drive:/telegram
-  before_upload_file_zip: True
-  after_upload_file_delete: True
-hide_file_name: true
-file_name_prefix:
-- message_id
-- file_name
-file_name_prefix_split: ' - '
-max_download_task: 5
-web_host: 127.0.0.1
-web_port: 5000
-web_login_secret: your_strong_password
-allowed_user_ids:
-- 'me'
-date_format: '%Y_%m'
-enable_download_txt: false
-```
+  audio: [all]
+  document: [all]
+  video: [all]
 
-- **api_hash** - 你从电报应用程序获得的 api_hash
-- **api_id** - 您从电报应用程序获得的 api_id
-- **bot_token** - 你的机器人凭证
-- **chat** -  多频道
-  - `chat_id` -  您要下载媒体的聊天/频道的 ID。你从上述步骤中得到的。
-  - `download_filter` - 下载过滤器
-  - `last_read_message_id` -如果这是您第一次阅读频道，请将其设置为“0”，或者如果您已经使用此脚本下载媒体，它将有一些数字，这些数字会在脚本成功执行后自动更新。不要改变它。
-- **chat_id** - 您要下载媒体的聊天/频道的 ID。你从上述步骤中得到的。
-- **last_read_message_id** - 如果这是您第一次阅读频道，请将其设置为“0”，或者如果您已经使用此脚本下载媒体，它将有一些数字，这些数字会在脚本成功执行后自动更新。不要改变它。
-- **ids_to_retry** - `保持原样。`下载器脚本使用它来跟踪所有跳过的下载，以便在下次执行脚本时可以下载它。
-- **media_types** - 要下载的媒体类型，您可以更新要下载的媒体类型，它可以是一种或任何可用类型。
-- **file_formats** - 为支持的媒体类型（“音频”、“文档”和“视频”）下载的文件类型。默认格式为“all”，下载所有文件。
-- **save_path** - 你想存储下载文件的根目录
-- **file_path_prefix** - 存储文件子文件夹，列表的顺序不定，可以随机组合
-  - `chat_title`      - 聊天频道或者群组标题, 如果找不到标题则为配置文件中的`chat_id`
-  - `media_datetime`  - 资源的发布时间
-  - `media_type`      - 资源类型，类型查阅 `media_types`
-- **upload_drive** - 您可以将文件上传到云盘
-  - `enable_upload_file` - [必填]启用上传文件，默认为`false`
-  - `remote_dir` - [必填]你上传的地方
-  - `upload_adapter` - [必填]上传文件适配器，可以为`rclone`,`aligo`。如果为`rclone`，则支持rclone所有支持上传的服务器，如果为aligo，则支持上传阿里云盘
-  - `rclone_path`，如果配置`upload_adapter`为`rclone`则为必填，`rclone`的可执行目录
-  - `before_upload_file_zip` - 上传前压缩文件，默认为`false`
-  - `after_upload_file_delete` - 上传成功后删除文件，默认为`false`
-- **file_name_prefix** - 自定义文件名称,使用和 **file_path_prefix** 一样
-  - `message_id` - 消息id
-  - `file_name` - 文件名称（可能为空）
-  - `caption` - 消息的标题（可能为空）
-- **file_name_prefix_split** - 自定义文件名称分割符号，默认为` - `
-- **max_download_task** - 最大任务下载任务个数，默认为5个。
-- **hide_file_name** - 是否隐藏web界面文件名称，默认`false`
-- **web_host** - web界面地址
-- **web_port** - web界面端口
-- **language** - 应用语言，默认为英文(`EN`),可选`ZH`（中文）,`RU`,`UA`
-- **web_login_secret** - 网页登录密码，如果不配置则访问网页不需要登录
-- **log_level** - 默认日志等级，请参阅 `logging._nameToLevel`
-- **forward_limit** - 限制每分钟转发次数，默认为33，默认请不要修改该参数
-- **allowed_user_ids** - 允许哪些人使用机器人，默认登录账号可以使用，带@的名称请加单引号
-- **date_format** - 支持自定义配置file_path_prefix中media_datetime的格式，具体格式查看 [python-datetime](https://docs.python.org/zh-cn/3/library/time.html)
-- **enable_download_txt** 启用下载txt文件，默认`false`
-
-## 执行
-
-```sh
-python3 media_downloader.py
-```
-
-所有下载的媒体都将存储在`save_path`根目录下。
-具体位置参考如下：
-
-```yaml
+save_path: /app/downloads
 file_path_prefix:
   - chat_title
   - media_datetime
-  - media_type
+
+web_host: "0.0.0.0"
+web_port: 5000
+web_login_secret: "change_me"
+language: ZH
 ```
 
-视频下载完整目录为：`save_path`/`chat_title`/`media_datetime`/`media_type`。
-列表的顺序不定，可以随机组合。
-如果配置为空，则所有文件保存在`save_path`下。
+## Bot 常用指令
 
-## 代理
+- `/help` 查看帮助。
+- `/download <chat_link> <start_id> <end_id> [filter]` 下载频道消息区间。
+- `/forward <src_chat> <dst_chat> <start_id> <end_id> [filter]` 批量转发。
+- `/listen_forward <src_chat> <dst_chat> [filter]` 监听源频道并转发。
+- `/stop` 停止当前下载/转发任务。
+- `/cleanup on|off` 开关“转发/上传后自动清理”。
+- `/forward-clean` 立即清理 forward 目录。
+- `/forward-limit 20GB` 设置 forward 目录容量上限。
 
-该项目目前支持 socks4、socks5、http 代理。要使用它，请将以下内容添加到`config.yaml`文件的底部
+## UI 界面展示（高清）
 
-```yaml
-proxy:
-  scheme: socks5
-  hostname: 127.0.0.1
-  port: 1234
-  username: 你的用户名（无则删除该行）
-  password: 你的密码（无则删除该行）
-```
+### 登录页
 
-如果您的代理不需要授权，您可以省略用户名和密码。然后代理将自动启用。
+![WebUI Login](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_login_hd.png)
 
-## 贡献
+### 多账号仪表盘
 
-### 贡献指南
+![WebUI Dashboard](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_dashboard_hd.png)
 
-通读我们的[贡献指南](./CONTRIBUTING.md)，了解我们的提交流程、编码规则等。
+### 任务管理（下载/转发/监听）
 
-### 想帮忙？
+![WebUI Tasks](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_tasks_hd.png)
 
-想要提交错误、贡献一些代码或改进文档？出色的！阅读我们的 [贡献指南](./CONTRIBUTING.md)。
+### 下载监控
 
-### 行为守则
+![WebUI Downloads](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_downloads_hd.png)
 
-帮助我们保持 ld_tg_downloader 的开放性和包容性。请阅读并遵守我们的[行为准则](./CODE_OF_CONDUCT.md)。
+### 配置编辑
 
+![WebUI Config](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_config_hd.png)
 
-### 赞助
+### 频道管理
 
-<p>
-<img alt="Code style: black" style="width:30%" src="./screenshot/alipay.JPG">
-<img alt="Code style: black" style="width:30%" src="./screenshot/wechat.JPG">
-</p>
+![WebUI Chats](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_chats_hd.png)
 
-## WebUI 初次登录密码设置
+### Bot 操作示例
 
-首次部署后，WebUI 的登录密码由 `config.yaml` 中的 `web_login_secret` 决定。设置步骤：1) 打开 `config.yaml`；2) 将 `web_login_secret` 改成你自己的强密码；3) 重启容器（如 `docker compose up -d --force-recreate`）；4) 使用该密码登录 `http://<你的IP>:5000`。若 `web_login_secret` 留空，WebUI 将不启用登录保护，不建议在公网环境使用。
+![Bot Flow](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/bot_workflow_hd.png)
+
+## 数据与隐私建议
+
+- `sessions/`、`temp/`、`log/`、`downloads/` 都属于运行态目录，不建议提交到代码仓库。
+- `config.yaml`、`accounts.yaml` 内请只保留示例值，不要写入真实 API 密钥、Bot Token、手机号。
+- 分享镜像或仓库前，先检查并清理会话文件（如 `*.session*`）与日志文件。
+
+## License
+
+MIT

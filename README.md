@@ -1,265 +1,147 @@
-<h1 align="center">ld_tg_downloader-0.1</h1>
+# ld_tg_downloader
 
-<h3 align="center">
-  <a href="./README_CN.md">中文</a>
-</h3>
+> 面向 NAS/服务器的 Telegram 媒体下载与转发工具，核心是“全流程 WebUI + Bot 双入口”。
 
-## Overview
-> Support two default running
+[English](./README_en.md)
 
-* The robot is running, and the command `download` or `forward` is issued from the robot
+## For Portainer/Synology Users
 
-* Download as a one-time download tool
+Copy this into Portainer stacks and hit Deploy. Done.
 
-### UI
-
-#### Web page
-
-> After running, open a browser and visit `localhost:5000`
-> If it is a remote machine, you need to configure web_host: 0.0.0.0
-
-
-<img alt="Code style: black" style="width:100%; high:60%;" src="./screenshot/web_ui.gif"/>
-
-### Robot
-
-> Need to configure bot_token in `config.yaml`.
-
-<img alt="Code style: black" style="width:60%; high:30%; " src="./screenshot/bot.gif"/>
-
-### Support
-
-| Category             | Support                                          |
-| -------------------- | ------------------------------------------------ |
-| Language             | `Python 3.7` and above                           |
-| Download media types | audio, document, photo, video, video_note, voice |
-
-## Installation
-
-For *nix os distributions with `make` availability
-
-```sh
-git clone <your_repo_url>
-cd ld_tg_downloader-0.1
-make install
-```
-
-For Windows which doesn't have `make` inbuilt
-
-```sh
-git clone <your_repo_url>
-cd ld_tg_downloader-0.1
-pip3 install -r requirements.txt
-```
-
-## Docker
-
-Make sure you have **docker** and **docker-compose** installed
-```sh
-docker-compose build
-
-# The first time you need to start the foreground
-# enter your phone number and code, then exit(ctrl + c)
-docker-compose run --rm ld_tg_downloader
-
-# After performing the above operations, all subsequent startups will start in the background
-docker-compose up -d
-
-# Upgrade
-docker-compose down
-docker-compose up -d
-```
-
-## Upgrade installation
-
-```sh
-cd ld_tg_downloader-0.1
-pip3 install -r requirements.txt
-```
-
-## Configuration
-
-All the configurations are passed to the ld_tg_downloader-0.1 via `config.yaml` file.
-
-**Getting your API Keys:**
-The very first step requires you to obtain a valid Telegram API key (API id/hash pair):
-
-1. Visit  [https://my.telegram.org/apps](https://my.telegram.org/apps)  and log in with your Telegram Account.
-2. Fill out the form to register a new Telegram application.
-3. Done! The API key consists of two parts:  **api_id**  and  **api_hash**.
-
-**Getting chat id:**
-
-**1. Using web telegram:**
-
-1. Open <https://web.telegram.org/?legacy=1#/im>
-
-2. Now go to the chat/channel and you will see the URL as something like
-   - `https://web.telegram.org/?legacy=1#/im?p=u853521067_2449618633394` here `853521067` is the chat id.
-   - `https://web.telegram.org/?legacy=1#/im?p=@somename` here `somename` is the chat id.
-   - `https://web.telegram.org/?legacy=1#/im?p=s1301254321_6925449697188775560` here take `1301254321` and add `-100` to the start of the id => `-1001301254321`.
-   - `https://web.telegram.org/?legacy=1#/im?p=c1301254321_6925449697188775560` here take `1301254321` and add `-100` to the start of the id => `-1001301254321`.
-
-**2. Using bot:**
-
-1. Use [@username_to_id_bot](https://t.me/username_to_id_bot) to get the chat_id of
-    - almost any telegram user: send username to the bot or just forward their message to the bot
-    - any chat: send chat username or copy and send its joinchat link to the bot
-    - public or private channel: same as chats, just copy and send to the bot
-    - id of any telegram bot
-
-### config.yaml
+## Docker Compose
 
 ```yaml
-api_hash: your_api_hash
-api_id: your_api_id
-chat:
-- chat_id: telegram_chat_id
-  last_read_message_id: 0
-  download_filter: message_date >= 2022-12-01 00:00:00 and message_date <= 2023-01-17 00:00:00
-- chat_id: telegram_chat_id_2
-  last_read_message_id: 0
-# note we remove ids_to_retry to data.yaml
-ids_to_retry: []
+services:
+  ld_tg_downloader:
+    image: leduchuong/ld_tg_downloader:latest
+    container_name: ld_tg_downloader
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./config.yaml:/app/config.yaml
+      - ./accounts.yaml:/app/accounts.yaml
+      - ./data.yaml:/app/data.yaml
+      - ./configs:/app/configs
+      - ./sessions:/app/sessions
+      - ./temp:/app/temp
+      - ./log:/app/log
+```
+
+## 项目最大特点
+
+- 全流程 WebUI：登录后可在页面里完成账号添加、手机验证码登录、2FA 密码验证、Bot token 校验、任务创建、任务状态查看、配置修改。
+- Bot 操作入口：支持通过 Bot 指令触发下载、转发、监听转发、停止任务与清理策略。
+- 下载与转发一体化：既可以按频道历史区间下载，也可以做频道到频道转发和监听转发。
+- 多账号架构：每个账号独立配置和会话文件，便于隔离管理。
+- 可选云盘上传：支持通过 `upload_drive` 配置对接上传流程。
+
+## 快速开始
+
+1. 准备目录与文件。
+
+```bash
+mkdir -p downloads configs sessions temp log
+touch config.yaml accounts.yaml data.yaml
+```
+
+2. 参考下面最小配置，先设置 `api_id`、`api_hash`，并设置 WebUI 密码 `web_login_secret`。
+3. 启动容器：
+
+```bash
+docker compose up -d
+```
+
+4. 访问 `http://<你的主机IP>:5000` 进入 WebUI。
+
+## WebUI 初次登录密码如何设置
+
+WebUI 登录密码来自 `config.yaml` 的 `web_login_secret` 字段：
+
+- 为空：不启用登录保护（不建议）。
+- 非空：使用该密码登录 WebUI。
+
+修改后执行 `docker compose up -d --force-recreate` 使配置生效。
+
+## 最小配置示例（config.yaml）
+
+```yaml
+api_id: 123456
+api_hash: "your_api_hash"
+bot_token: ""
+chat: []
+
 media_types:
-- audio
-- document
-- photo
-- video
-- voice
-- animation #gif
+  - photo
+  - video
+  - document
+  - audio
+  - voice
+
 file_formats:
-  audio:
-  - all
-  document:
-  - pdf
-  - epub
-  video:
-  - mp4
-save_path: D:\ld_tg_downloader-0.1
+  audio: [all]
+  document: [all]
+  video: [all]
+
+save_path: /app/downloads
 file_path_prefix:
-- chat_title
-- media_datetime
-upload_drive:
-  # required
-  enable_upload_file: true
-  # required
-  remote_dir: drive:/telegram
-  # required
-  upload_adapter: rclone
-  # option,when config upload_adapter rclone then this config are required
-  rclone_path: D:\rclone\rclone.exe
-  # option
-  before_upload_file_zip: True
-  # option
-  after_upload_file_delete: True
-hide_file_name: true
-file_name_prefix:
-- message_id
-- file_name
-file_name_prefix_split: ' - '
-max_download_task: 5
-web_host: 127.0.0.1
+  - chat_title
+  - media_datetime
+
+web_host: "0.0.0.0"
 web_port: 5000
-language: EN
-web_login_secret: your_strong_password
-allowed_user_ids:
-- 'me'
-date_format: '%Y_%m'
-enable_download_txt: false
+web_login_secret: "change_me"
+language: ZH
 ```
 
-- **api_hash**  - The api_hash you got from telegram apps
-- **api_id** - The api_id you got from telegram apps
-- **bot_token** - Your bot token
-- **chat** - Chat list
-  - `chat_id` -  The id of the chat/channel you want to download media. Which you get from the above-mentioned steps.
-  - `download_filter` - Download filter
-  - `last_read_message_id` - If it is the first time you are going to read the channel let it be `0` or if you have already used this script to download media it will have some numbers which are auto-updated after the scripts successful execution. Don't change it.
-  - `ids_to_retry` - `Leave it as it is.` This is used by the downloader script to keep track of all skipped downloads so that it can be downloaded during the next execution of the script.
-- **media_types** - Type of media to download, you can update which type of media you want to download it can be one or any of the available types.
-- **file_formats** - File types to download for supported media types which are `audio`, `document` and `video`. Default format is `all`, downloads all files.
-- **save_path** - The root directory where you want to store downloaded files.
-- **file_path_prefix** - Store file subfolders, the order of the list is not fixed, can be randomly combined.
-  - `chat_title`      - Channel or group title, it will be chat id if not exist title.
-  - `media_datetime`  - Media date.
-  - `media_type`      - Media type, also see `media_types`.
-- **upload_drive** - You can upload file to cloud drive.
-  - `enable_upload_file` - Enable upload file, default `false`.
-  - `remote_dir` - Where you upload, like `drive_id/drive_name`.
-  - `upload_adapter` - Upload file adapter, which can be `rclone`, `aligo`. If it is `rclone`, it supports all `rclone` servers that support uploading. If it is `aligo`, it supports uploading `Ali cloud disk`.
-  - `rclone_path` - RClone exe path
-  - `before_upload_file_zip` - Zip file before upload, default `false`.
-  - `after_upload_file_delete` - Delete file after upload success, default `false`.
-- **file_name_prefix** - Custom file name, use the same as **file_path_prefix**
-  - `message_id` - Message id
-  - `file_name` - File name (may be empty)
-  - `caption` - The title of the message (may be empty)
-- **file_name_prefix_split** - Custom file name prefix symbol, the default is `-`
-- **max_download_task** - The maximum number of task download tasks, the default is 5.
-- **hide_file_name** - Whether to hide the web interface file name, default `false`
-- **web_host** - Web host
-- **web_port** - Web port
-- **language** - Application language, the default is English (`EN`), optional `ZH`(Chinese),`RU`,`UA`
-- **web_login_secret** - Web page login password, if not configured, no login is required to access the web page
-- **log_level** - see `logging._nameToLevel`.
-- **forward_limit** - Limit the number of forwards per minute, the default is 33, please do not modify this parameter by default.
-- **allowed_user_ids** - Who is allowed to use the robot? The default login account can be used. Please add single quotes to the name with @.
-- **date_format** Support custom configuration of media_datetime format in file_path_prefix.see [python-datetime](https://docs.python.org/3/library/datetime.html)
-- **enable_download_txt** Enable download txt file, default `false`
+## Bot 常用指令
 
-## Execution
+- `/help` 查看帮助。
+- `/download <chat_link> <start_id> <end_id> [filter]` 下载频道消息区间。
+- `/forward <src_chat> <dst_chat> <start_id> <end_id> [filter]` 批量转发。
+- `/listen_forward <src_chat> <dst_chat> [filter]` 监听源频道并转发。
+- `/stop` 停止当前下载/转发任务。
+- `/cleanup on|off` 开关“转发/上传后自动清理”。
+- `/forward-clean` 立即清理 forward 目录。
+- `/forward-limit 20GB` 设置 forward 目录容量上限。
 
-```sh
-python3 media_downloader.py
-```
+## UI 界面展示（高清）
 
-All downloaded media will be stored at the root of `save_path`.
-The specific location reference is as follows:
+### 登录页
 
-The complete directory of video download is: `save_path`/`chat_title`/`media_datetime`/`media_type`.
-The order of the list is not fixed and can be randomly combined.
-If the configuration is empty, all files are saved under `save_path`.
+![WebUI Login](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_login_hd.png)
 
-## Proxy
+### 多账号仪表盘
 
-`socks4, socks5, http` proxies are supported in this project currently. To use it, add the following to the bottom of your `config.yaml` file
+![WebUI Dashboard](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_dashboard_hd.png)
 
-```yaml
-proxy:
-  scheme: socks5
-  hostname: 127.0.0.1
-  port: 1234
-  username: your_username(delete the line if none)
-  password: your_password(delete the line if none)
-```
+### 任务管理（下载/转发/监听）
 
-If your proxy doesn’t require authorization you can omit username and password. Then the proxy will automatically be enabled.
+![WebUI Tasks](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_tasks_hd.png)
 
-## Contributing
+### 下载监控
 
-### Contributing Guidelines
+![WebUI Downloads](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_downloads_hd.png)
 
-Read through our [contributing guidelines](./CONTRIBUTING.md) to learn about our submission process, coding rules and more.
+### 配置编辑
 
-### Want to Help?
+![WebUI Config](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_config_hd.png)
 
-Want to file a bug, contribute some code, or improve documentation? Excellent! Read up on our guidelines for [contributing](./CONTRIBUTING.md).
+### 频道管理
 
-### Code of Conduct
+![WebUI Chats](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_chats_hd.png)
 
-Help us keep ld_tg_downloader open and inclusive. Please read and follow our [Code of Conduct](./CODE_OF_CONDUCT.md).
+### Bot 操作示例
 
+![Bot Flow](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/bot_workflow_hd.png)
 
-### Sponsor
+## 数据与隐私建议
 
-[PayPal](https://paypal.me/tangyoha?country.x=C2&locale.x=zh_XC)
+- `sessions/`、`temp/`、`log/`、`downloads/` 都属于运行态目录，不建议提交到代码仓库。
+- `config.yaml`、`accounts.yaml` 内请只保留示例值，不要写入真实 API 密钥、Bot Token、手机号。
+- 分享镜像或仓库前，先检查并清理会话文件（如 `*.session*`）与日志文件。
 
-<p>
-<img alt="Code style: black" style="width:30%" src="./screenshot/alipay.JPG">
-<img alt="Code style: black" style="width:30%" src="./screenshot/wechat.JPG">
-</p>
+## License
 
-## WebUI First Login Password Setup
-
-After first deployment, the WebUI password is controlled by `web_login_secret` in `config.yaml`. Steps: 1) edit `config.yaml`; 2) set a strong password in `web_login_secret`; 3) recreate/restart the container (for example `docker compose up -d --force-recreate`); 4) log in at `http://<your-ip>:5000` with that password. If `web_login_secret` is empty, WebUI login protection is disabled, which is not recommended for public network exposure.
+MIT
