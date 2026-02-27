@@ -2,7 +2,7 @@ pyrogram==2.0.106
 PyYAML==5.3.1
 rich==12.5.1
 PyTgCrypto==1.2.12
-loguru==0.6.0
+loguru==0.7.3
 # aligo==5.4.0
 Werkzeug==2.2.2
 flask==2.2.2
