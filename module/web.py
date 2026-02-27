@@ -30,7 +30,7 @@ log.setLevel(logging.ERROR)
 
 _flask_app = Flask(__name__)
 
-_flask_app.secret_key = "ld_tg_downloader"
+_flask_app.secret_key = "ld_telegram_downloader"
 _login_manager = LoginManager()
 _login_manager.login_view = "login"
 _login_manager.init_app(_flask_app)
@@ -451,7 +451,7 @@ def web_set_download_state():
 
 @_flask_app.route("/get_app_version")
 def get_app_version():
-    """Get ld_tg_downloader version"""
+    """Get ld_telegram_downloader version"""
     return utils.__version__
 
 

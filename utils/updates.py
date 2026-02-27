@@ -1,4 +1,5 @@
-"""Utility module to check for new release of ld_tg_downloader"""
+"""Utility module to check for new release of ld_telegram_downloader"""
+
 import os
 import json
 
@@ -9,7 +10,7 @@ from rich.markdown import Markdown
 
 from . import __version__
 
-PROJECT_NAME = "ld_tg_downloader"
+PROJECT_NAME = "ld_telegram_downloader"
 GITHUB_REPO = os.getenv("LD_TG_DOWNLOADER_GITHUB_REPO", "")
 
 

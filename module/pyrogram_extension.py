@@ -364,6 +364,21 @@ async def upload_telegram_chat_message(
                 wait_err.value,
                 wait_seconds,
             )
+        except (asyncio.TimeoutError, TimeoutError, OSError, ConnectionError) as e:
+            # Transient connection/timeout errors — retry
+            wait_seconds = _calc_backoff_seconds(max(2, app.flood_wait_extra), attempt)
+            logger.warning(
+                "Upload Message[{}]: {} (attempt {}/{}), retry in {:.1f}s",
+                message.id,
+                type(e).__name__,
+                attempt,
+                max_attempts,
+                wait_seconds,
+            )
+            await asyncio.sleep(wait_seconds)
+            if attempt == max_attempts:
+                return ForwardStatus.FailedForward
+            continue
         except Exception as e:
             if FILE_PART_MISSING and isinstance(e, FILE_PART_MISSING):
                 _reset_media_group_cache(node, message.media_group_id)
@@ -417,7 +432,7 @@ async def _upload_signal_message(
         # Download thumbnail
         thumbnail_file = await download_thumbnail(client, app.temp_save_path, message)
         try:
-            # TODO(tangyoha): add more log when upload video more than 2000MB failed
+            # TODO: add more log when upload video more than 2000MB failed
             # Send video to the destination chat
             if node.reply_to_message:
                 await _run_with_timeout(
@@ -629,7 +644,19 @@ async def _upload_telegram_chat_message(
     Returns:
         None
     """
-    await app.forward_limit_call.wait(node)
+    try:
+        await asyncio.wait_for(app.forward_limit_call.wait(node), timeout=120)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "forward_limit_call.wait() timed out (120s) for msg {}", message.id
+        )
+        # Proceed anyway — better to risk a FloodWait than hang forever
+    logger.debug(
+        "_upload_telegram_chat_message: msg_id={}, media_group={}, protected={}",
+        message.id,
+        message.media_group_id,
+        node.has_protected_content,
+    )
 
     caption = message.caption
     caption_entities = message.caption_entities
@@ -643,50 +670,62 @@ async def _upload_telegram_chat_message(
     if caption and len(caption) > max_caption_length:
         caption = caption[:max_caption_length]
 
-    if not message.media_group_id:
-        if not node.has_protected_content:
-            if node.reply_to_message:
-                if message.text:
-                    await node.reply_to_message.reply(
-                        message.text,
-                        message_thread_id=node.topic_id,
-                    )
-                elif message.photo:
-                    await node.reply_to_message.reply_photo(
-                        message.photo.file_id,
-                        caption=caption,
-                        message_thread_id=node.topic_id,
-                    )
-                elif message.video:
-                    await node.reply_to_message.reply_video(
-                        message.video.file_id,
-                        caption=caption,
-                        message_thread_id=node.topic_id,
-                    )
-                elif message.document:
-                    await node.reply_to_message.reply_document(
-                        message.document.file_id,
-                        caption=caption,
-                        message_thread_id=node.topic_id,
-                    )
-                elif message.audio:
-                    await node.reply_to_message.reply_audio(
-                        message.audio.file_id,
-                        caption=caption,
-                        message_thread_id=node.topic_id,
-                    )
-            else:
-                # For other types of media, fallback to forward_messages
-                await forward_messages(
-                    client,
-                    node.upload_telegram_chat_id,
-                    node.chat_id,
-                    message.id,
-                    drop_author=True,
-                    topic_id=node.topic_id,
-                    caption=caption,
-                )
-        else:
+    if not node.has_protected_content:
+        # Non-protected: three-tier fallback with timeout protection.
+        # Each API call is wrapped in asyncio.wait_for to prevent
+        # indefinite hangs when the MTProto connection drops.
+        _API_TIMEOUT = 30  # seconds
+
+        # Tier 1: Direct forward
+        try:
+            await asyncio.wait_for(
+                client.forward_messages(
+                    chat_id=node.upload_telegram_chat_id,
+                    from_chat_id=node.chat_id,
+                    message_ids=message.id,
+                ),
+                timeout=_API_TIMEOUT,
+            )
+            return ForwardStatus.SuccessForward
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Forward msg {} timed out ({}s), trying copy_message",
+                message.id,
+                _API_TIMEOUT,
+            )
+        except Exception as fwd_err:
+            logger.debug(
+                "Forward msg {} failed ({}), trying copy_message",
+                message.id,
+                fwd_err,
+            )
+
+        # Tier 2: Copy message
+        try:
+            await asyncio.wait_for(
+                client.copy_message(
+                    chat_id=node.upload_telegram_chat_id,
+                    from_chat_id=node.chat_id,
+                    message_id=message.id,
+                ),
+                timeout=_API_TIMEOUT,
+            )
+            return ForwardStatus.SuccessForward
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Copy msg {} timed out ({}s), skipping", message.id, _API_TIMEOUT
+            )
+            return ForwardStatus.FailedForward
+        except Exception as copy_err:
+            logger.warning(
+                "Copy msg {} also failed ({}), skipping",
+                message.id,
+                copy_err,
+            )
+            return ForwardStatus.FailedForward
+    else:
+        # Protected content: needs download + re-upload
+        if not message.media_group_id:
             await _upload_signal_message(
                 client,
                 upload_user,
@@ -697,11 +736,11 @@ async def _upload_telegram_chat_message(
                 file_name,
                 caption,
             )
-        return ForwardStatus.SuccessForward
+            return ForwardStatus.SuccessForward
 
-    return await forward_multi_media(
-        client, upload_user, app, node, message, caption, file_name
-    )
+        return await forward_multi_media(
+            client, upload_user, app, node, message, caption, file_name
+        )
 
 
 def _reset_media_group_cache(node: TaskNode, media_group_id: Optional[str]):
@@ -714,6 +753,77 @@ def _reset_media_group_cache(node: TaskNode, media_group_id: Optional[str]):
     for msg_id in group.keys():
         node.upload_status[msg_id] = None
     node.media_group_ids.pop(media_group_id, None)
+
+
+async def _forward_media_group_direct(
+    client: pyrogram.Client,
+    node: TaskNode,
+    message: pyrogram.types.Message,
+) -> ForwardStatus:
+    """Direct forward/copy for media groups (non-protected content).
+
+    Collects all message IDs in the group, then forwards them in one call.
+    Falls back to copy_media_group if forward fails.
+    """
+    if not node.media_group_ids.get(message.media_group_id):
+        node.media_group_ids[message.media_group_id] = {}
+
+    if not node.media_group_ids[message.media_group_id]:
+        media_group = await get_media_group_with_retry(
+            client, node.chat_id, message.id, 5
+        )
+        if not media_group:
+            logger.error("Get Media Group Error! message id: {}", message.id)
+            return ForwardStatus.FailedForward
+        for it in media_group:
+            node.media_group_ids[message.media_group_id][it.id] = None
+
+    # Mark this message as processed
+    node.media_group_ids[message.media_group_id][message.id] = True
+
+    # Only send when all messages in the group have been seen
+    all_seen = all(
+        v is not None for v in node.media_group_ids[message.media_group_id].values()
+    )
+    if not all_seen:
+        return ForwardStatus.CacheForward
+
+    msg_ids = sorted(node.media_group_ids[message.media_group_id].keys())
+    node.media_group_ids.pop(message.media_group_id, None)
+
+    # Tier 1: forward all at once
+    try:
+        await client.forward_messages(
+            chat_id=node.upload_telegram_chat_id,
+            from_chat_id=node.chat_id,
+            message_ids=msg_ids,
+        )
+        node.stat_forward(ForwardStatus.SuccessForward, len(msg_ids))
+        return ForwardStatus.CacheForward
+    except Exception as fwd_err:
+        logger.debug(
+            "Forward media group {} failed ({}), trying copy",
+            message.media_group_id,
+            fwd_err,
+        )
+
+    # Tier 2: copy one by one
+    ok_count = 0
+    for mid in msg_ids:
+        try:
+            await client.copy_message(
+                chat_id=node.upload_telegram_chat_id,
+                from_chat_id=node.chat_id,
+                message_id=mid,
+            )
+            ok_count += 1
+        except Exception as copy_err:
+            logger.warning("Copy media group msg {} failed: {}", mid, copy_err)
+            node.stat_forward(ForwardStatus.FailedForward)
+
+    if ok_count:
+        node.stat_forward(ForwardStatus.SuccessForward, ok_count)
+    return ForwardStatus.CacheForward
 
 
 # pylint: disable=R0912
@@ -1463,7 +1573,6 @@ async def forward_messages(
             noforwards=protect_content,
             drop_author=drop_author,
             top_msg_id=topic_id,
-            entities=caption_entities,
         )
     )
 

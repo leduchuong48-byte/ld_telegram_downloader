@@ -51,7 +51,7 @@ logging.basicConfig(
 
 CONFIG_NAME = "config.yaml"
 DATA_FILE_NAME = "data.yaml"
-APPLICATION_NAME = "ld_tg_downloader"
+APPLICATION_NAME = "ld_telegram_downloader"
 app = Application(CONFIG_NAME, DATA_FILE_NAME, APPLICATION_NAME)
 
 queue: asyncio.Queue = asyncio.Queue()
@@ -664,7 +664,7 @@ def _check_config() -> bool:
     try:
         _load_config()
         logger.add(
-            os.path.join(app.log_file_path, "ld_tg_downloader.log"),
+            os.path.join(app.log_file_path, "ld_telegram_downloader.log"),
             rotation="10 MB",
             retention="10 days",
             level=app.log_level,
@@ -832,9 +832,14 @@ async def stop_server(client: pyrogram.Client):
 
 def main():
     """Main function of the downloader."""
+    # Ensure app has an event loop (no longer created in Application.__init__)
+    if app.loop is None:
+        app.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(app.loop)
+
     tasks = []
     client = HookClient(
-        "ld_tg_downloader",
+        "ld_telegram_downloader",
         api_id=app.api_id,
         api_hash=app.api_hash,
         proxy=app.proxy,
@@ -939,6 +944,11 @@ def main_multi():
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+
+    # Assign the single event loop to the module-level app (and its _md copy)
+    app.loop = loop
+    if _md is not None and hasattr(_md, 'app') and _md.app is not app:
+        _md.app.loop = loop
 
     # ── account manager ──────────────────────────────────────────
     manager = AccountManager(base_dir=".")

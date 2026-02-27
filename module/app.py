@@ -187,11 +187,18 @@ class TaskNode:
 
     def is_finish(self):
         """If is finish"""
-        return self.is_stop_transmission or (
-            self.is_running
-            and self.task_type != TaskType.ListenForward
-            and self.total_task == self.total_download_task
-        )
+        if self.is_stop_transmission:
+            return True
+        if not self.is_running:
+            return False
+        if self.task_type == TaskType.ListenForward:
+            return False
+        # Forward-only tasks: completion is signalled by is_stop_transmission
+        # (set in forward_message_impl finally block), not download counters.
+        if self.task_type == TaskType.Forward:
+            return False
+        # Download tasks: finished when all messages have been processed
+        return self.total_task == self.total_download_task
 
     def stop_transmission(self):
         """Stop task"""
@@ -287,6 +294,9 @@ class LimitCall:
             if self.limit_call_times + 1 <= self.max_limit_call_times:
                 self.limit_call_times += 1
                 break
+
+            # Rate limit reached, wait before retrying
+            await asyncio.sleep(1)
 
             # logger.debug("Waiting for 10 seconds...")
             await asyncio.sleep(1)
@@ -423,8 +433,9 @@ class Application:
 
         self.forward_limit_call = LimitCall(max_limit_call_times=33)
 
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
+        # Loop will be set by caller (main_multi / AccountInstance.start).
+        # Do NOT create a new event loop here — it causes dual-loop bugs.
+        self.loop = None
 
         self.executor = ThreadPoolExecutor(
             min(32, (os.cpu_count() or 0) + 4), thread_name_prefix="multi_task"
@@ -748,8 +759,9 @@ class Application:
             )
         elif self.cloud_drive_config.upload_adapter == "aligo":
             try:
+                _loop = self.loop or asyncio.get_running_loop()
                 ret = await asyncio.wait_for(
-                    self.loop.run_in_executor(
+                    _loop.run_in_executor(
                         self.executor,
                         functools.partial(
                             CloudDrive.aligo_upload_file,

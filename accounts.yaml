@@ -1,8 +1,1 @@
-accounts:
-- account_id: acc_default
-  phone: ''
-  api_id: your_api_id
-  api_hash: your_api_hash
-  bot_token: your_bot_token
-  session_name: acc_default
-  status: unauthenticated
+accounts: []

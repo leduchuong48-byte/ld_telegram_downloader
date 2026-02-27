@@ -3,10 +3,10 @@ from distutils.core import setup
 from utils import __version__
 
 setup(
-    name="ld_tg_downloader",
+    name="ld_telegram_downloader",
     version=__version__,
-    author="tangyoha",
-    author_email="tangyoha@outlook.com",
+    author="",
+    author_email="",
     description="A simple script to download media from Telegram",
     py_modules=["media_downloader"],
     classifiers=[

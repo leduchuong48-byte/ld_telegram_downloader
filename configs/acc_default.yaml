@@ -1,51 +1,6 @@
-api_hash: your_api_hash
-api_id: your_api_id
-bot_token: your_bot_token
+api_hash: ""
+api_id: 0
+bot_token: ""
 chat: []
-file_formats:
-  audio:
-  - all
-  document:
-  - all
-  video:
-  - all
-file_path_prefix:
-- chat_title
-- media_datetime
-media_types:
-- photo
-- video
 save_path: /app/downloads
 language: ZH
-max_download_task: 3
-max_upload_task: 1
-max_concurrent_transmissions: 3
-max_download_concurrent_transmissions: 3
-max_upload_concurrent_transmissions: 1
-queue_max_size: 2
-upload_queue_max_size: 5
-flood_wait_extra: 10
-download_timeout: 1800
-upload_timeout: 900
-file_name_prefix: []
-file_name_prefix_split: ''
-date_format: ''
-upload_drive:
-  enable_upload_file: false
-  upload_adapter: rclone
-  remote_dir: ''
-  rclone_path: ''
-  before_upload_file_zip: false
-  after_upload_file_delete: false
-proxy:
-  scheme: socks5
-  hostname: ''
-  port: 0
-  username: ''
-  password: ''
-hide_file_name: false
-enable_download_txt: false
-forward_max_size: 0
-web_host: 0.0.0.0
-web_port: 5000
-web_login_secret: ""

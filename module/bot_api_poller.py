@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any, Callable, Dict, Iterable, List, Optional, Pattern, Tuple
 
 import pyrogram
+import requests as _requests
 from loguru import logger
 
 
@@ -20,32 +21,26 @@ class _RateLimitError(Exception):
 def _bot_api_call_sync(base_url: str, method: str, payload: dict) -> dict:
     """Synchronous Bot API HTTP call."""
     url = f"{base_url}/{method}"
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url=url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as err:
-        if err.code == 429:
+        resp = _requests.post(url, json=payload, timeout=(10, 30))
+        resp.raise_for_status()
+        return resp.json()
+    except _requests.exceptions.HTTPError as err:
+        code = err.response.status_code if err.response is not None else 0
+        if code == 429:
             retry_after = 1
             try:
-                body = err.read().decode("utf-8")
-                d = json.loads(body)
+                d = err.response.json()
                 retry_after = int(d.get("parameters", {}).get("retry_after", 1))
             except Exception:
                 pass
             raise _RateLimitError(max(retry_after, 1)) from err
         body = ""
         try:
-            body = err.read().decode("utf-8")
+            body = err.response.text
         except Exception:
             pass
-        logger.warning(f"[BotAPI] {method} HTTP {err.code}: {body}")
+        logger.warning(f"[BotAPI] {method} HTTP {code}: {body}")
         raise
 
 
@@ -240,7 +235,7 @@ class BotApiFacadeClient:
 
     def __init__(self, bot_token: str):
         self.bot_token = bot_token
-        self._base_url = f"https://api.openai.com/v1"
+        self._base_url = f"https://api.telegram.org/bot{bot_token}"
         self._me = None
         # Provide a .loop attribute for compatibility with code that reads it
         self.loop = None
@@ -398,7 +393,7 @@ class BotApiPoller:
 
         self._running = True
         self._offset = 0
-        self._base_url = f"https://api.openai.com/v1"
+        self._base_url = f"https://api.telegram.org/bot{self.bot_token}"
 
         self._command_handlers: Dict[str, Callable] = {}
         self._regex_handlers: List[Tuple[Pattern[str], Callable]] = []
@@ -445,17 +440,16 @@ class BotApiPoller:
 
     def _fetch_updates_sync(self) -> Dict[str, Any]:
         url = self._build_updates_url()
-        req = urllib.request.Request(url=url, method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=35) as resp:
-                payload = resp.read().decode("utf-8")
-                return json.loads(payload)
-        except urllib.error.HTTPError as err:
-            if err.code == 429:
+            resp = _requests.get(url, timeout=(10, 35))  # (connect, read)
+            resp.raise_for_status()
+            return resp.json()
+        except _requests.exceptions.HTTPError as err:
+            code = err.response.status_code if err.response is not None else 0
+            if code == 429:
                 retry_after = 1
                 try:
-                    body = err.read().decode("utf-8")
-                    data = json.loads(body)
+                    data = err.response.json()
                     retry_after = int(
                         data.get("parameters", {}).get("retry_after", retry_after)
                     )
@@ -463,6 +457,9 @@ class BotApiPoller:
                     pass
                 raise _RateLimitError(max(retry_after, 1)) from err
             raise
+        except _requests.exceptions.Timeout:
+            logger.warning("[BotApiPoller] getUpdates timed out (35s)")
+            return {"ok": True, "result": []}
 
     async def _dispatch(self, update: Dict[str, Any]):
         try:
@@ -486,18 +483,23 @@ class BotApiPoller:
                 text = message_obj.text or ""
 
                 dispatched_command = False
+                # Long-running commands run in background to not block polling
+                _LONG_COMMANDS = {"forward", "download", "listen_forward"}
                 if text.startswith("/"):
                     first_token = text.split(maxsplit=1)[0]
                     command = first_token[1:].split("@", maxsplit=1)[0].lower()
                     handler = self._command_handlers.get(command)
                     if handler:
-                        await handler(self.bot_client, message_obj)
+                        if command in _LONG_COMMANDS:
+                            asyncio.create_task(handler(self.bot_client, message_obj))
+                        else:
+                            await handler(self.bot_client, message_obj)
                         dispatched_command = True
 
                 if not dispatched_command:
                     for pattern, handler in self._regex_handlers:
                         if text and pattern.search(text):
-                            await handler(self.bot_client, message_obj)
+                            asyncio.create_task(handler(self.bot_client, message_obj))
                             dispatched_command = True
                             break
 
@@ -525,12 +527,27 @@ class BotApiPoller:
             return
 
         backoff = 1
+
+        # On startup, skip all pending updates to avoid re-processing old commands
+        try:
+            catchup_url = f"{self._base_url}/getUpdates"
+            resp = _requests.get(catchup_url, params={"offset": -1, "timeout": 1}, timeout=(10, 5))
+            payload = resp.json()
+            results = payload.get("result", [])
+            if results:
+                last_id = max(int(u.get("update_id", 0)) for u in results)
+                self._offset = last_id + 1
+                logger.info(f"[BotApiPoller] skipped old updates, offset={self._offset}")
+        except Exception as e:
+            logger.warning(f"[BotApiPoller] catchup failed: {e}")
+
         logger.info("[BotApiPoller] started")
 
         while self._running:
             try:
                 data = await asyncio.to_thread(self._fetch_updates_sync)
                 n_results = len(data.get("result", [])) if data else 0
+                logger.info("[BotApiPoller] poll returned, results={}", n_results)
                 if n_results > 0:
                     logger.info("[BotApiPoller] received {} update(s)", n_results)
                 if data and not data.get("ok", False):
@@ -549,7 +566,10 @@ class BotApiPoller:
                     update_id = int(update.get("update_id", 0) or 0)
                     if update_id >= self._offset:
                         self._offset = update_id + 1
-                    await self._dispatch(update)
+                    try:
+                        await self._dispatch(update)
+                    except Exception as dispatch_err:
+                        logger.error(f"[BotApiPoller] dispatch error for update_id={update_id}: {dispatch_err}")
 
                 backoff = 1
             except _RateLimitError as err:

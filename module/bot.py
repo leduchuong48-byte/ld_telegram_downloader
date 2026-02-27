@@ -321,7 +321,7 @@ async def send_help_str(client: pyrogram.Client, chat_id):
         str: The help string that was sent.
 
     Note:
-        The help string includes information about the ld_tg_downloader bot,
+        The help string includes information about the LD Telegram Downloader bot,
         its version, and the available commands.
     """
 
@@ -953,7 +953,58 @@ async def forward_message_impl(
                 offset_id=offset_id,
                 reverse=True,
             ):
-                await forward_normal_content(client, node, item)
+                # Skip service messages (channel created, topic created, etc.)
+                # These cannot be forwarded or copied — saves API calls and avoids
+                # MESSAGE_ID_INVALID errors that waste rate-limit budget.
+                if item.service is not None:
+                    logger.debug(f"Skipping service msg {item.id} ({item.service})")
+                    node.stat_forward(ForwardStatus.SkipForward)
+                    continue
+
+                logger.info(
+                    f"Processing msg {item.id} (media={item.media}, media_group={item.media_group_id})"
+                )
+                try:
+                    logger.debug(f"Calling forward_normal_content for msg {item.id}...")
+                    # Total timeout per message: 90s covers wait_for(30s) * 3 retries + overhead.
+                    # Prevents permanent hang if Pyrogram Session.invoke() deadlocks.
+                    await asyncio.wait_for(
+                        forward_normal_content(client, node, item),
+                        timeout=90,
+                    )
+                    _consecutive_timeouts = 0
+                    logger.info(
+                        f"Msg {item.id} done (success={node.success_forward_task}, failed={node.failed_forward_task}, skip={node.skip_forward_task})"
+                    )
+                except asyncio.TimeoutError:
+                    _consecutive_timeouts = (
+                        getattr(node, "_consecutive_timeouts", 0) + 1
+                    )
+                    node._consecutive_timeouts = _consecutive_timeouts
+                    logger.warning(
+                        f"Forward msg {item.id} TOTAL timeout (90s), skipping (consecutive={_consecutive_timeouts})"
+                    )
+                    node.stat_forward(ForwardStatus.FailedForward)
+                    # If 3+ consecutive timeouts, the connection is likely dead.
+                    # Force reconnect by stopping and restarting the client session.
+                    if _consecutive_timeouts >= 3:
+                        logger.error(
+                            f"3 consecutive timeouts — forcing client reconnect"
+                        )
+                        try:
+                            await asyncio.wait_for(_bot.client.stop(), timeout=10)
+                        except Exception:
+                            pass
+                        try:
+                            await asyncio.wait_for(_bot.client.start(), timeout=30)
+                        except Exception as reconn_err:
+                            logger.error(f"Reconnect failed: {reconn_err}")
+                            break
+                        node._consecutive_timeouts = 0
+                        logger.info("Client reconnected, resuming forward")
+                except Exception as fwd_err:
+                    logger.warning(f"Forward msg {item.id} failed: {fwd_err}, skipping")
+                    node.stat_forward(ForwardStatus.FailedForward)
                 if node.is_stop_transmission:
                     await client.edit_message_text(
                         message.from_user.id,
@@ -1089,7 +1140,7 @@ async def listen_forward_msg(client: pyrogram.Client, message: pyrogram.types.Me
     if message.chat and message.chat.id in _bot.listen_forward_chat:
         node = _bot.listen_forward_chat[message.chat.id]
 
-        # TODO(tangyoha):fix run time change protected content
+        # TODO: fix run time change protected content
         if not node.has_protected_content:
             await forward_normal_content(client, node, message)
             await report_bot_status(client, node, immediate_reply=True)

@@ -30,7 +30,11 @@ translations = {
     "Failed": ["失败", "Не удалось", "Не вдалося"],
     "Skipped": ["跳过", "Пропущено", "Пропущено"],
     "Message ID": ["消息ID", "ID сообщения", "ID повідомлення"],
-    "ld_tg_downloader": ["ld_tg_downloader", "ld_tg_downloader", "ld_tg_downloader"],
+    "ld_tg_downloader": [
+        "LD Telegram Downloader",
+        "LD Telegram Downloader",
+        "LD Telegram Downloader",
+    ],
     "Version": ["版本", "Версия", "Версія"],
     "Downloading": ["下载", "Скачивание", "Скачування"],
     "Available commands:": ["可用命令:", "Доступные команды:", "Доступні команди:"],
@@ -225,7 +229,11 @@ translations = {
         "Оновлено ідентифікатор останнього прочитаного повідомлення у конфігураційному файлі",
     ],
     "total download": ["总下载", "всего скачено", "всього скачано"],
-    "total upload file": ["总上传文件", "всего скаченных файлов", "всього скачаних файлів"],
+    "total upload file": [
+        "总上传文件",
+        "всего скаченных файлов",
+        "всього скачаних файлів",
+    ],
     "Stopped": ["停止", "остановлено", "зупинено"],
     "already download,download skipped": [
         "已下载,已跳过下载",

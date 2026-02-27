@@ -9,7 +9,7 @@ services:
     #  - http_proxy=http://192.168.101.30:10811
     #  - https_proxy=http://192.168.101.30:10811
     volumes:
-      - "./downloads:/app/downloads"
+      - "/vol1/1000/media/素材/tg:/app/downloads/"
 
       # Rclone
       - "$HOME/.config/rclone/:$HOME/.config/rclone/"

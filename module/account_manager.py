@@ -1,4 +1,4 @@
-"""Multi-account manager for ld_tg_downloader.
+"""Multi-account manager for ld_telegram_downloader.
 
 Manages multiple Telegram user accounts, each with an optional bot.
 Persists account registry to accounts.yaml.
