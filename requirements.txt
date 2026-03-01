@@ -1,4 +1,4 @@
-pyrogram==2.0.106
+https://github.com/tangyoha/pyrogram/archive/refs/heads/patch.zip
 PyYAML==5.3.1
 rich==12.5.1
 PyTgCrypto==1.2.12

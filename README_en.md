@@ -4,6 +4,10 @@
 
 [中文](./README.md)
 
+## v3.2 Update
+
+- Fixed download failures in some runtime scenarios and improved bot-triggered media download stability.
+
 ## For Portainer/Synology Users
 
 Copy this into Portainer stacks and hit Deploy. Done.

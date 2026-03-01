@@ -1,26 +1,19 @@
 services:
   ld_telegram_downloader:
-    image: ld_telegram_downloader:3.0
+    image: leduchuong/ld_tg_downloader:3.2
     build: .
-    container_name: tgdownloader_aitrans
+    container_name: ld_tg_downloader
     ports:
       - "5000:5000"
-    #environment:
-    #  - http_proxy=http://192.168.101.30:10811
-    #  - https_proxy=http://192.168.101.30:10811
     volumes:
-      - "/vol1/1000/media/素材/tg:/app/downloads/"
-
-      # Rclone
-      - "$HOME/.config/rclone/:$HOME/.config/rclone/"
-
+      - "./downloads:/app/downloads"
       - "./config.yaml:/app/config.yaml"
-      - "./data.yaml:/app/data.yaml"
-      - "./log/:/app/log/"
-      - "./sessions/:/app/sessions/"
-      - "./temp/:/app/temp/"
-      - "./configs/:/app/configs/"
       - "./accounts.yaml:/app/accounts.yaml"
+      - "./data.yaml:/app/data.yaml"
+      - "./configs:/app/configs"
+      - "./sessions:/app/sessions"
+      - "./temp:/app/temp"
+      - "./log:/app/log"
     logging:
       driver: "json-file"
       options:
@@ -31,4 +24,4 @@ services:
         limits:
           cpus: "1.0"
           memory: "512M"
-    #restart: "unless-stopped"
+    restart: "unless-stopped"

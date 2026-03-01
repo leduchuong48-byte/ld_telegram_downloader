@@ -57,6 +57,7 @@ class DownloadBot:
 
     def __init__(self):
         self.bot = None
+        self.bot_media_client = None
         self.client = None
         self.add_download_task: Callable = None
         self.download_chat_task: Callable = None
@@ -156,6 +157,17 @@ class DownloadBot:
         # Bot API HTTP poller (confirmed pyrotgfork 2.2.1 bug).
         self.bot = BotApiFacadeClient(app.bot_token)
         self.bot.loop = getattr(app, "loop", None)
+        # A dedicated MTProto bot client is still required for media fetch/download.
+        self.bot_media_client = pyrogram.Client(
+            app.application_name + "_bot_media",
+            api_hash=app.api_hash,
+            api_id=app.api_id,
+            bot_token=app.bot_token,
+            workdir=app.session_file_path,
+            proxy=app.proxy,
+            no_updates=True,
+            skip_updates=True,
+        )
 
         # 命令列表
         commands = [
@@ -219,6 +231,16 @@ class DownloadBot:
                 if config:
                     self.config = config
                     self.assign_config(self.config)
+
+        try:
+            await self.bot_media_client.start()
+            media_me = await self.bot_media_client.get_me()
+            logger.info(
+                f"Bot media client started: @{media_me.username} (id={media_me.id})"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to start bot media client: {e}")
+            self.bot_media_client = None
 
         # Get bot info via Bot API HTTP (no MTProto connection)
         self.bot_info = await self.bot.get_me()
@@ -305,6 +327,11 @@ async def stop_download_bot():
         _bot.poller.stop()
     if hasattr(_bot, "_poller_task") and _bot._poller_task:
         _bot._poller_task.cancel()
+    if hasattr(_bot, "bot_media_client") and _bot.bot_media_client:
+        try:
+            await _bot.bot_media_client.stop()
+        except Exception as e:
+            logger.warning(f"Stop bot media client failed: {e}")
     if _bot.bot:
         await _bot.bot.stop()
 
@@ -601,7 +628,27 @@ async def direct_download(
         task_id=_bot.gen_task_id(),
     )
 
-    node.client = client
+    download_client = client
+    if not (
+        download_client
+        and hasattr(download_client, "get_messages")
+        and hasattr(download_client, "download_media")
+    ):
+        download_client = download_bot.bot_media_client
+
+    if not download_client:
+        logger.error(
+            "No MTProto media client available for direct download, chat_id={}",
+            chat_id,
+        )
+        await download_bot.bot.send_message(
+            message.from_user.id,
+            "当前媒体下载客户端不可用，请稍后重试。",
+            reply_to_message_id=message.id,
+        )
+        return
+
+    node.client = download_client
 
     _bot.add_task_node(node)
 

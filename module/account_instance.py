@@ -10,6 +10,7 @@ import time
 from typing import Callable, Dict, List, Optional, Union
 
 import pyrogram
+import utils
 from loguru import logger
 from ruamel import yaml as _ryaml
 
@@ -185,9 +186,11 @@ class AccountInstance:
                     user_name = f"{me.first_name or ''} {me.last_name or ''}".strip()
                     welcome = (
                         f"🟢 **TG Media Downloader 已上线**\n\n"
+                        f"📦 版本：`{utils.__version__}`\n"
                         f"📡 账号：`{user_name}`\n"
                         f"🤖 机器人：{bot_name}\n"
-                        f"🌐 WebUI：`http://192.168.100.21:5000`\n\n"
+                        f"🌐 WebUI：`http://<host>:{self.app.web_port}`\n\n"
+                        f"🔗 仓库：https://github.com/leduchuong48-byte/ld_telegram_downloader\n\n"
                         f"发送 /help 查看所有可用命令。"
                     )
                     await self.bot_instance.bot.send_message(me.id, welcome)
@@ -228,6 +231,12 @@ class AccountInstance:
                 if self.bot_instance.reply_task:
                     self.bot_instance.reply_task.cancel()
                 self.bot_instance.stop_task("all")
+                if getattr(self.bot_instance, "poller", None):
+                    self.bot_instance.poller.stop()
+                if getattr(self.bot_instance, "_poller_task", None):
+                    self.bot_instance._poller_task.cancel()
+                if getattr(self.bot_instance, "bot_media_client", None):
+                    await self.bot_instance.bot_media_client.stop()
                 if self.bot_instance.bot:
                     await self.bot_instance.bot.stop()
             except Exception as e:
