@@ -4,7 +4,7 @@ rich==12.5.1
 PyTgCrypto==1.2.12
 loguru==0.6.0
 # aligo==5.4.0
-Werkzeug==2.2.2
+Werkzeug==3.1.6
 flask==2.2.2
 ply==3.11
 ruamel.yaml==0.17.21
