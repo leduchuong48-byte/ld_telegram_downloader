@@ -1042,6 +1042,20 @@ async def report_bot_download_status(
     node.stat(download_status)
     node.total_download_byte += download_size
     await report_bot_status(client, node)
+    if node.reply_message_id and node.bot:
+        terminal_msg = None
+        if download_status is DownloadStatus.SkipDownload:
+            terminal_msg = f"Skip confirmed. task id: {node.task_id}"
+        elif download_status is DownloadStatus.SuccessDownload:
+            terminal_msg = f"Completed. task id: {node.task_id}"
+        elif download_status is DownloadStatus.FailedDownload:
+            terminal_msg = f"Failed. task id: {node.task_id}"
+        if terminal_msg:
+            await client.send_message(
+                node.from_user_id,
+                terminal_msg,
+                reply_to_message_id=node.reply_message_id,
+            )
 
 
 async def report_bot_forward_status(
@@ -1076,6 +1090,97 @@ async def report_bot_status(
         logger.debug(f"{e}")
 
 
+def build_bot_status_message(node: TaskNode) -> str:
+    """Render the task status message shown to bot users."""
+    if node.upload_telegram_chat_id:
+        node.forward_msg_detail_str = (
+            f"\n🔄 {_t('Forward')}\n"
+            f"├─ 📁 {_t('Total')}: {node.total_forward_task}\n"
+            f"├─ ✅ {_t('Success')}: {node.success_forward_task}\n"
+            f"├─ ❌ {_t('Failed')}: {node.failed_forward_task}\n"
+            f"└─ ⏩ {_t('Skipped')}: {node.skip_forward_task}\n"
+        )
+
+    upload_msg_detail_str: str = ""
+
+    if node.upload_success_count:
+        upload_msg_detail_str = (
+            f"\n☁️ {_t('Upload')}\n"
+            f"└─ ✅ {_t('Success')}: {node.upload_success_count}\n"
+        )
+
+    for idx, value in node.cloud_drive_upload_stat_dict.items():
+        if value.transferred == value.total:
+            continue
+
+        temp_file_name = truncate_filename(os.path.basename(value.file_name), 10)
+        upload_msg_detail_str += (
+            f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
+            f" │   ├─ 📁 : {temp_file_name}\n"
+            f" │   ├─ 📏 : {value.total}\n"
+            f" │   ├─ ⏫ : {value.speed}\n"
+            f" │   └─ 📊 : ["
+            f"{create_progress_bar(int(value.percentage.split('%')[0]))}]"
+            f" ({value.percentage})%\n"
+        )
+
+    download_result_str = ""
+    download_result = get_download_result()
+    if node.chat_id in download_result:
+        messages = download_result[node.chat_id]
+        for idx, value in messages.items():
+            task_id = value["task_id"]
+            if task_id != node.task_id or value["down_byte"] == value["total_size"]:
+                continue
+
+            temp_file_name = truncate_filename(os.path.basename(value["file_name"]), 10)
+            progress = int(value["down_byte"] / value["total_size"] * 100)
+            download_result_str += (
+                f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
+                f" │   ├─ 📁 : {temp_file_name}\n"
+                f" │   ├─ 📏 : {format_byte(value['total_size'])}\n"
+                f" │   ├─ ⏬ : {format_byte(value['download_speed'])}/s\n"
+                f" │   └─ 📊 : [{create_progress_bar(progress)}]"
+                f" ({progress}%)\n"
+            )
+
+        if download_result_str:
+            download_result_str = f"\n📥 {_t('Download Progresses')}:\n" + download_result_str
+
+    upload_result_str = ""
+    for idx, value in node.upload_stat_dict.items():
+        if value.total_size == value.upload_size:
+            continue
+
+        temp_file_name = truncate_filename(os.path.basename(value.file_name), 10)
+        progress = int(value.upload_size / value.total_size * 100)
+        upload_result_str += (
+            f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
+            f" │   ├─ 📁 : {temp_file_name}\n"
+            f" │   ├─ 📏 : {format_byte(value.total_size)}\n"
+            f" │   ├─ ⏫ : {format_byte(value.upload_speed)}/s\n"
+            f" │   └─ 📊 : [{create_progress_bar(progress)}]"
+            f" ({progress}%)\n"
+        )
+
+    if upload_result_str:
+        upload_result_str = f"\n📤 {_t('Upload Progresses')}:\n" + upload_result_str
+
+    return (
+        f"`\n"
+        f"🆔 task id: {node.task_id}\n"
+        f"📥 {_t('Downloading')}: {format_byte(node.total_download_byte)}\n"
+        f"├─ 📁 {_t('Total')}: {node.total_download_task}\n"
+        f"├─ ✅ {_t('Success')}: {node.success_download_task}\n"
+        f"├─ ❌ {_t('Failed')}: {node.failed_download_task}\n"
+        f"└─ ⏩ {_t('Skipped')}: {node.skip_download_task}\n"
+        f"{node.forward_msg_detail_str}"
+        f"{upload_msg_detail_str}"
+        f"{upload_result_str}"
+        f"{download_result_str}\n`"
+    )
+
+
 async def _report_bot_status(
     client: pyrogram.Client,
     node: TaskNode,
@@ -1096,98 +1201,7 @@ async def _report_bot_status(
         return
 
     if immediate_reply or node.can_reply():
-        if node.upload_telegram_chat_id:
-            node.forward_msg_detail_str = (
-                f"\n🔄 {_t('Forward')}\n"
-                f"├─ 📁 {_t('Total')}: {node.total_forward_task}\n"
-                f"├─ ✅ {_t('Success')}: {node.success_forward_task}\n"
-                f"├─ ❌ {_t('Failed')}: {node.failed_forward_task}\n"
-                f"└─ ⏩ {_t('Skipped')}: {node.skip_forward_task}\n"
-            )
-
-        upload_msg_detail_str: str = ""
-
-        if node.upload_success_count:
-            upload_msg_detail_str = (
-                f"\n☁️ {_t('Upload')}\n"
-                f"└─ ✅ {_t('Success')}: {node.upload_success_count}\n"
-            )
-
-        for idx, value in node.cloud_drive_upload_stat_dict.items():
-            if value.transferred == value.total:
-                continue
-
-            temp_file_name = truncate_filename(os.path.basename(value.file_name), 10)
-            upload_msg_detail_str += (
-                f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
-                f" │   ├─ 📁 : {temp_file_name}\n"
-                f" │   ├─ 📏 : {value.total}\n"
-                f" │   ├─ ⏫ : {value.speed}\n"
-                f" │   └─ 📊 : ["
-                f"{create_progress_bar(int(value.percentage.split('%')[0]))}]"
-                f" ({value.percentage})%\n"
-            )
-
-        download_result_str = ""
-        download_result = get_download_result()
-        if node.chat_id in download_result:
-            messages = download_result[node.chat_id]
-            for idx, value in messages.items():
-                task_id = value["task_id"]
-                if task_id != node.task_id or value["down_byte"] == value["total_size"]:
-                    continue
-
-                temp_file_name = truncate_filename(
-                    os.path.basename(value["file_name"]), 10
-                )
-                progress = int(value["down_byte"] / value["total_size"] * 100)
-                download_result_str += (
-                    f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
-                    f" │   ├─ 📁 : {temp_file_name}\n"
-                    f" │   ├─ 📏 : {format_byte(value['total_size'])}\n"
-                    f" │   ├─ ⏬ : {format_byte(value['download_speed'])}/s\n"
-                    f" │   └─ 📊 : [{create_progress_bar(progress)}]"
-                    f" ({progress}%)\n"
-                )
-
-            if download_result_str:
-                download_result_str = (
-                    f"\n📥 {_t('Download Progresses')}:\n" + download_result_str
-                )
-
-        upload_result_str = ""
-        for idx, value in node.upload_stat_dict.items():
-            if value.total_size == value.upload_size:
-                continue
-
-            temp_file_name = truncate_filename(os.path.basename(value.file_name), 10)
-            progress = int(value.upload_size / value.total_size * 100)
-            upload_result_str += (
-                f" ├─ 🆔 {_t('Message ID')}: {idx}\n"
-                f" │   ├─ 📁 : {temp_file_name}\n"
-                f" │   ├─ 📏 : {format_byte(value.total_size)}\n"
-                f" │   ├─ ⏫ : {format_byte(value.upload_speed)}/s\n"
-                f" │   └─ 📊 : [{create_progress_bar(progress)}]"
-                f" ({progress}%)\n"
-            )
-
-        if upload_result_str:
-            upload_result_str = f"\n📤 {_t('Upload Progresses')}:\n" + upload_result_str
-
-        new_msg_str = (
-            f"`\n"
-            f"🆔 task id: {node.task_id}\n"
-            f"📥 {_t('Downloading')}: {format_byte(node.total_download_byte)}\n"
-            f"├─ 📁 {_t('Total')}: {node.total_download_task}\n"
-            f"├─ ✅ {_t('Success')}: {node.success_download_task}\n"
-            f"├─ ❌ {_t('Failed')}: {node.failed_download_task}\n"
-            f"└─ ⏩ {_t('Skipped')}: {node.skip_download_task}\n"
-            f"{node.forward_msg_detail_str}"
-            f"{upload_msg_detail_str}"
-            f"{upload_result_str}"
-            f"{download_result_str}\n`"
-        )
-
+        new_msg_str = build_bot_status_message(node)
         if new_msg_str != node.last_edit_msg:
             node.last_edit_msg = new_msg_str
             await client.edit_message_text(

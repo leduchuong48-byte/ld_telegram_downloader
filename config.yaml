@@ -1,0 +1,26 @@
+api_id: 123456
+api_hash: "your_api_hash"
+bot_token: ""
+chat: []
+
+media_types:
+  - photo
+  - video
+  - document
+  - audio
+  - voice
+
+file_formats:
+  audio: [all]
+  document: [all]
+  video: [all]
+
+save_path: /app/downloads
+file_path_prefix:
+  - chat_title
+  - media_datetime
+
+web_host: "0.0.0.0"
+web_port: 5000
+web_login_secret: "change_me"
+language: ZH

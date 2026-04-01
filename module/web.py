@@ -68,6 +68,34 @@ def get_flask_app() -> Flask:
     return _flask_app
 
 
+@_flask_app.route("/healthz")
+def healthz():
+    """Container health endpoint."""
+    configured_accounts = 0
+    running_accounts = 0
+
+    if _account_manager and getattr(_account_manager, "accounts", None):
+        configured_accounts = len(_account_manager.accounts)
+        if _get_instance_callback:
+            for account_id in _account_manager.accounts:
+                if _get_instance_callback(account_id):
+                    running_accounts += 1
+
+    ok = configured_accounts == 0 or running_accounts > 0
+    status_code = 200 if ok else 503
+    return (
+        jsonify(
+            {
+                "ok": ok,
+                "web": "ok",
+                "configured_accounts": configured_accounts,
+                "running_accounts": running_accounts,
+            }
+        ),
+        status_code,
+    )
+
+
 def _run_async(coro):
     """Run an async coroutine from Flask (sync) context."""
     if _event_loop is None:

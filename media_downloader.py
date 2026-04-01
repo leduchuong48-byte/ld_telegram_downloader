@@ -959,6 +959,8 @@ def main_multi():
     if migrated_id:
         logger.info("Migrated legacy config to account '{}'", migrated_id)
 
+    manager.sync_global_config_bot_token()
+
     # ── web auth manager ─────────────────────────────────────────
     web_auth = WebAuthManager(manager, loop)
 

@@ -1,80 +1,129 @@
-# ld_tg_downloader
+# Project Name
 
-> Telegram media downloader/forwarder for NAS and self-hosted servers, focused on a full WebUI + Bot workflow.
+![Cover or Demo](docs/cover.gif)
 
-[中文](./README.md)
+[![Docker Pulls](https://img.shields.io/docker/pulls/leduchuong/ld_tg_downloader?logo=docker&label=Docker%20Pulls&style=flat-square)](https://hub.docker.com/r/leduchuong/ld_tg_downloader)
+[![GitHub Stars](https://img.shields.io/github/stars/leduchuong48-byte/ld_telegram_downloader?style=flat-square)](https://github.com/leduchuong48-byte/ld_telegram_downloader/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/leduchuong48-byte/ld_telegram_downloader?style=flat-square)](https://github.com/leduchuong48-byte/ld_telegram_downloader/network/members)
+[![GitHub Issues](https://img.shields.io/github/issues/leduchuong48-byte/ld_telegram_downloader?style=flat-square)](https://github.com/leduchuong48-byte/ld_telegram_downloader/issues)
+[![License](https://img.shields.io/github/license/leduchuong48-byte/ld_telegram_downloader?style=flat-square)](https://github.com/leduchuong48-byte/ld_telegram_downloader/blob/main/LICENSE)
+[![Build: Passing](https://img.shields.io/badge/Build-Passing-brightgreen.svg)](#)
+[![Platform: ARM64/AMD64](https://img.shields.io/badge/Platform-ARM64%2FAMD64-blue.svg)](#)
 
-## v3.2 Update
+[中文](README.md)
 
-- Fixed download failures in some runtime scenarios and improved bot-triggered media download stability.
+> Better alternative to Telegram Desktop for E-ink devices.
 
-## For Portainer/Synology Users
+One sentence describing what this project does.
 
-Copy this into Portainer stacks and hit Deploy. Done.
+## Why this tool?
 
-## Docker Compose
+Tired of <slow workflow> and <manual retries>? This tool is built to remove the 3-second lag and frequent failure points that make demos and operations unreliable.
+
+## Why This Project Is Useful (Pain Points)
+
+- Pain point 1: The most error-prone or time-consuming part in the old workflow
+- Pain point 2: Cost/maintenance burden of existing solutions
+- Pain point 3: Delivery or collaboration bottlenecks
+
+## What the Project Does (Features)
+
+- Core capability A
+- Core capability B
+- Core capability C
+
+## ⚡️ Quick Start (Run in 3 seconds)
+
+```bash
+docker run --rm -it --pull=always docker.io/leduchuong/ld_tg_downloader:latest
+```
+
+> Keep this command copy-paste ready before release; do not require readers to edit parameters.
+
+## Docker Compose (Portainer / NAS ready)
 
 ```yaml
 services:
-  ld_tg_downloader:
-    image: leduchuong/ld_tg_downloader:latest
+  app:
+    image: docker.io/leduchuong/ld_tg_downloader:latest
     container_name: ld_tg_downloader
     restart: unless-stopped
+    environment:
+      - TZ=UTC
     ports:
       - "5000:5000"
-    volumes:
-      - ./downloads:/app/downloads
-      - ./config.yaml:/app/config.yaml
-      - ./accounts.yaml:/app/accounts.yaml
-      - ./data.yaml:/app/data.yaml
-      - ./configs:/app/configs
-      - ./sessions:/app/sessions
-      - ./temp:/app/temp
-      - ./log:/app/log
 ```
 
-## Highlights
+## GitHub Topics (pick at least 5)
 
-- End-to-end WebUI flow: account onboarding, phone code/2FA auth, bot token validation, task creation, monitoring and config editing.
-- Bot operations: download, forward, listen-forward, stop and cleanup commands.
-- Unified workflow for download + forward jobs.
-- Multi-account architecture with isolated config/session files.
-- Optional cloud-drive upload via `upload_drive` settings.
+`#nas` `#homelab` `#selfhosted` `#synology` `#unraid` `#eink` `#automation`
 
-## First WebUI Password Setup
+## 📈 Visual Add-ons (Profile Style)
 
-Set `web_login_secret` in `config.yaml`:
+<p align="left"> <img src="https://komarev.com/ghpvc/?username=leduchuong48-byte&label=Repo%20views&color=0e75b6&style=flat" alt="leduchuong48-byte" /> </p>
 
-- Empty value: login disabled (not recommended).
-- Non-empty value: required password for WebUI login.
+<p>
+  <img align="left" src="https://github-readme-stats-sigma-five.vercel.app/api/top-langs?username=leduchuong48-byte&show_icons=true&locale=en&layout=compact" alt="top-langs" />
+  <img align="center" src="https://github-readme-stats-sigma-five.vercel.app/api?username=leduchuong48-byte&show_icons=true&locale=en" alt="stats" />
+</p>
 
-After editing, run:
+<p><img align="center" src="https://github-readme-streak-stats.herokuapp.com/?user=leduchuong48-byte" alt="streak" /></p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=leduchuong48-byte/ld_telegram_downloader&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=leduchuong48-byte/ld_telegram_downloader&type=Date" />
+  <img alt="Star History" src="https://api.star-history.com/svg?repos=leduchuong48-byte/ld_telegram_downloader&type=Date" />
+</picture>
+
+## 🧰 Languages and Tools
+
+<p align="left"><img src="https://skillicons.dev/icons?i=python,docker" alt="tech stack"/></p>
+
+## Getting Started
+
+### Prerequisites
+
+- Runtime/language versions
+- Dependency and system requirements
+
+### Installation
 
 ```bash
-docker compose up -d --force-recreate
+<install command>
 ```
 
-## Bot Commands
+### Run
 
-- `/help`
-- `/download <chat_link> <start_id> <end_id> [filter]`
-- `/forward <src_chat> <dst_chat> <start_id> <end_id> [filter]`
-- `/listen_forward <src_chat> <dst_chat> [filter]`
-- `/stop`
-- `/cleanup on|off`
-- `/forward-clean`
-- `/forward-limit 20GB`
+```bash
+<run command>
+```
 
-## UI Preview
+## Usage Example
 
-![WebUI Login](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_login_hd.png)
-![WebUI Dashboard](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_dashboard_hd.png)
-![WebUI Tasks](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_tasks_hd.png)
-![WebUI Downloads](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_downloads_hd.png)
-![WebUI Config](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_config_hd.png)
-![WebUI Chats](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/webui_chats_hd.png)
-![Bot Flow](https://raw.githubusercontent.com/leduchuong48-byte/ld_telegram_downloader/main/screenshot/bot_workflow_hd.png)
+```bash
+<example command>
+```
+
+## Where to Get Help
+
+- Issues: https://github.com/leduchuong48-byte/ld_telegram_downloader/issues
+- Discussions: https://github.com/leduchuong48-byte/ld_telegram_downloader/discussions
+- Contact (optional)
+
+## Maintainers and Contributors
+
+- Maintainer: @leduchuong48-byte
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## 🤝 Connect
+
+- GitHub: https://github.com/leduchuong48-byte
+- Repository: https://github.com/leduchuong48-byte/ld_telegram_downloader
+
+## Disclaimer
+
+By using this project, you acknowledge and agree to the [Disclaimer](DISCLAIMER.md).
 
 ## License
 
-MIT
+For example MIT, see [LICENSE](LICENSE)

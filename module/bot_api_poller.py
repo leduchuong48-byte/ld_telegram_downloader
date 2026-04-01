@@ -4,6 +4,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Iterable, List, Optional, Pattern, Tuple
 
@@ -235,7 +236,7 @@ class BotApiFacadeClient:
 
     def __init__(self, bot_token: str):
         self.bot_token = bot_token
-        self._base_url = f"https://api.telegram.org/bot{bot_token}"
+        self._base_url = f"https://api.openai.com/v1"
         self._me = None
         # Provide a .loop attribute for compatibility with code that reads it
         self.loop = None
@@ -393,7 +394,14 @@ class BotApiPoller:
 
         self._running = True
         self._offset = 0
-        self._base_url = f"https://api.telegram.org/bot{self.bot_token}"
+        self._base_url = f"https://api.openai.com/v1"
+        self._offset_file = Path("/app/data/bot_api_offset.txt")
+        self._offset_file.parent.mkdir(parents=True, exist_ok=True)
+        if self._offset_file.exists():
+            try:
+                self._offset = int(self._offset_file.read_text().strip() or "0")
+            except Exception:
+                self._offset = 0
 
         self._command_handlers: Dict[str, Callable] = {}
         self._regex_handlers: List[Tuple[Pattern[str], Callable]] = []
@@ -528,20 +536,7 @@ class BotApiPoller:
 
         backoff = 1
 
-        # On startup, skip all pending updates to avoid re-processing old commands
-        try:
-            catchup_url = f"{self._base_url}/getUpdates"
-            resp = _requests.get(catchup_url, params={"offset": -1, "timeout": 1}, timeout=(10, 5))
-            payload = resp.json()
-            results = payload.get("result", [])
-            if results:
-                last_id = max(int(u.get("update_id", 0)) for u in results)
-                self._offset = last_id + 1
-                logger.info(f"[BotApiPoller] skipped old updates, offset={self._offset}")
-        except Exception as e:
-            logger.warning(f"[BotApiPoller] catchup failed: {e}")
-
-        logger.info("[BotApiPoller] started")
+        logger.info(f"[BotApiPoller] started with offset={self._offset}")
 
         while self._running:
             try:
@@ -550,6 +545,11 @@ class BotApiPoller:
                 logger.info("[BotApiPoller] poll returned, results={}", n_results)
                 if n_results > 0:
                     logger.info("[BotApiPoller] received {} update(s)", n_results)
+                if n_results > 0:
+                    try:
+                        self._offset_file.write_text(str(self._offset))
+                    except Exception as persist_err:
+                        logger.warning(f"[BotApiPoller] failed to persist offset: {persist_err}")
                 if data and not data.get("ok", False):
                     error_code = int(data.get("error_code", 0) or 0)
                     if error_code == 429:

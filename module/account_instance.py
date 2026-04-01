@@ -189,7 +189,7 @@ class AccountInstance:
                         f"📦 版本：`{utils.__version__}`\n"
                         f"📡 账号：`{user_name}`\n"
                         f"🤖 机器人：{bot_name}\n"
-                        f"🌐 WebUI：`http://<host>:{self.app.web_port}`\n\n"
+                        f"🌐 WebUI：`http://192.168.100.21:5000`\n\n"
                         f"🔗 仓库：https://github.com/leduchuong48-byte/ld_telegram_downloader\n\n"
                         f"发送 /help 查看所有可用命令。"
                     )
@@ -275,6 +275,8 @@ class AccountInstance:
                 message.id,
             )
             return False
+        self._active_tasks[node.task_id] = node
+        self._task_history[node.task_id] = node
         node.download_status[message.id] = DownloadStatus.Downloading
         logger.info(
             "[{}] _add_download_task: putting msg_id={} into queue (qsize={})",
@@ -458,6 +460,7 @@ class AccountInstance:
 
     _task_counter: int = 0
     _active_tasks: Dict[int, TaskNode] = {}
+    _task_history: Dict[int, TaskNode] = {}
 
     def _gen_task_id(self) -> int:
         self._task_counter += 1
@@ -509,6 +512,7 @@ class AccountInstance:
             task_id=task_id,
         )
         self._active_tasks[task_id] = node
+        self._task_history[task_id] = node
 
         self._loop.create_task(
             self._download_chat_task(self.client, chat_download_config, node)
@@ -568,6 +572,7 @@ class AccountInstance:
         )
         node.upload_user = self.client
         self._active_tasks[task_id] = node
+        self._task_history[task_id] = node
 
         chat_download_config = ChatDownloadConfig()
         chat_download_config.last_read_message_id = start_id
@@ -627,6 +632,7 @@ class AccountInstance:
         node.is_running = True
         self._listen_tasks[key] = node
         self._active_tasks[task_id] = node
+        self._task_history[task_id] = node
 
         return {"ok": True, "task_id": task_id, "key": key}
 
@@ -634,6 +640,7 @@ class AccountInstance:
         node = self._listen_tasks.pop(key, None)
         if node:
             node.stop_transmission()
+            self._task_history[node.task_id] = node
             self._active_tasks.pop(node.task_id, None)
             return {"ok": True}
         return {"ok": False, "error": "Not found"}
@@ -665,6 +672,7 @@ class AccountInstance:
         node = TaskNode(chat_id=chat_id, task_id=task_id)
         node.is_running = True
         self._active_tasks[task_id] = node
+        self._task_history[task_id] = node
 
         await self._add_download_task(msg, node)
         return {"ok": True, "task_id": task_id, "message_id": message_id}
@@ -675,7 +683,12 @@ class AccountInstance:
         result = []
         # Pre-fetch download snapshot for speed/progress aggregation
         download_result = get_download_result()
-        for tid, node in self._active_tasks.items():
+        ordered_tasks = list(self._active_tasks.items()) + [
+            (tid, node)
+            for tid, node in self._task_history.items()
+            if tid not in self._active_tasks
+        ]
+        for tid, node in ordered_tasks:
             # Aggregate per-file stats for this task
             task_downloaded_bytes = 0
             task_total_bytes = 0
@@ -923,6 +936,7 @@ class AccountInstance:
                 }
 
         self._active_tasks[task_id] = node
+        self._task_history[task_id] = node
 
         chat_download_config = ChatDownloadConfig()
         chat_download_config.last_read_message_id = start_id

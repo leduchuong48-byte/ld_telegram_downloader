@@ -27,6 +27,7 @@ from module.filter import Filter
 from module.get_chat_history_v2 import get_chat_history_v2
 from module.language import Language, _t
 from module.pyrogram_extension import (
+    build_bot_status_message,
     check_user_permission,
     parse_link,
     proc_cache_forward,
@@ -613,20 +614,15 @@ async def direct_download(
 ):
     """Direct Download"""
 
-    replay_message = "Direct download..."
-    last_reply_message = await download_bot.bot.send_message(
-        message.from_user.id, replay_message, reply_to_message_id=message.id
-    )
-
     node = TaskNode(
         chat_id=chat_id,
         from_user_id=message.from_user.id,
-        reply_message_id=last_reply_message.id,
-        replay_message=replay_message,
         limit=1,
         bot=download_bot.bot,
         task_id=_bot.gen_task_id(),
     )
+    node.source_type = "direct_message"
+    node.reply_chat_id = message.from_user.id
 
     download_client = client
     if not (
@@ -649,15 +645,33 @@ async def direct_download(
         return
 
     node.client = download_client
-
     _bot.add_task_node(node)
 
-    await _bot.add_download_task(
+    enqueue_ok = await _bot.add_download_task(
         download_message,
         node,
     )
+    if not enqueue_ok:
+        _bot.remove_task_node(node.task_id)
+        await download_bot.bot.send_message(
+            message.from_user.id,
+            f"Direct download enqueue failed. task id: {node.task_id}",
+            reply_to_message_id=message.id,
+        )
+        return
 
+    replay_message = build_bot_status_message(node)
+    last_reply_message = await download_bot.bot.send_message(
+        message.from_user.id,
+        replay_message,
+        reply_to_message_id=message.id,
+        parse_mode=pyrogram.enums.ParseMode.MARKDOWN,
+    )
+    node.reply_message_id = last_reply_message.id
+    node.reply_message = replay_message
+    node.last_edit_msg = replay_message
     node.is_running = True
+    await report_bot_status(download_bot.bot, node, immediate_reply=True)
 
 
 async def download_forward_media(
@@ -817,12 +831,27 @@ async def download_from_bot(client: pyrogram.Client, message: pyrogram.types.Mes
                 task_id=_bot.gen_task_id(),
             )
             _bot.add_task_node(node)
-            _bot.app.loop.create_task(
-                # Bot 交互任务绕过全局队列，避免被批量任务长期占满导致“全 0 不动”
-                _bot.download_chat_task(
-                    _bot.client, chat_download_config, node, use_queue=False
-                )
+            download_message = await _bot.client.get_messages(
+                chat_id=entity.id,
+                message_ids=start_offset_id,
             )
+            if not download_message or getattr(download_message, "empty", False):
+                _bot.remove_task_node(node.task_id)
+                await client.send_message(
+                    message.from_user.id,
+                    f"/download target message not found. task id: {node.task_id}",
+                    reply_to_message_id=message.id,
+                )
+                return
+            enqueue_ok = await _bot.add_download_task(download_message, node)
+            if not enqueue_ok:
+                _bot.remove_task_node(node.task_id)
+                await client.send_message(
+                    message.from_user.id,
+                    f"/download enqueue failed. task id: {node.task_id}",
+                    reply_to_message_id=message.id,
+                )
+                return
     except Exception as e:
         await client.send_message(
             message.from_user.id,
@@ -1121,9 +1150,8 @@ async def forward_msg(node: TaskNode, message_id: int):
     chat_download_config.last_read_message_id = message_id
     chat_download_config.download_filter = node.download_filter  # type: ignore
 
-    # Bot 交互任务绕过全局队列，避免被批量任务长期占满导致“全 0 不动”
     await _bot.download_chat_task(
-        _bot.client, chat_download_config, node, use_queue=False
+        _bot.client, chat_download_config, node
     )
 
 

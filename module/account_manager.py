@@ -198,6 +198,7 @@ class AccountManager:
         if account_id in self.accounts:
             self.accounts[account_id].bot_token = bot_token
             self._update_account_config_field(account_id, "bot_token", bot_token)
+            self.sync_global_config_bot_token()
             self.save()
 
     # ── per-account config ───────────────────────────────────────
@@ -251,6 +252,35 @@ class AccountManager:
 
         with open(config_path, "w", encoding="utf-8") as f:
             _yaml.dump(data, f)
+
+    def sync_global_config_bot_token(self) -> bool:
+        """Keep legacy config.yaml bot_token aligned in single-account mode."""
+        if len(self.accounts) != 1:
+            return False
+
+        global_config_path = os.path.join(self.base_dir, "config.yaml")
+        if not os.path.exists(global_config_path):
+            return False
+
+        account_cfg = next(iter(self.accounts.values()))
+        desired_token = account_cfg.bot_token or ""
+
+        with open(global_config_path, encoding="utf-8") as f:
+            data = _yaml.load(f.read()) or {}
+
+        current_token = data.get("bot_token", "") or ""
+        if current_token == desired_token:
+            return False
+
+        data["bot_token"] = desired_token
+        with open(global_config_path, "w", encoding="utf-8") as f:
+            _yaml.dump(data, f)
+
+        logger.warning(
+            "Synced legacy config.yaml bot_token with account {}",
+            account_cfg.account_id,
+        )
+        return True
 
     # ── migration ────────────────────────────────────────────────
 

@@ -1,19 +1,26 @@
 services:
   ld_telegram_downloader:
-    image: leduchuong/ld_tg_downloader:3.2
+    image: ld_telegram_downloader:3.3
     build: .
-    container_name: ld_tg_downloader
+    container_name: tgdownloader_aitrans
     ports:
       - "5000:5000"
+    #environment:
+    #  - http_proxy=http://192.168.101.30:10811
+    #  - https_proxy=http://192.168.101.30:10811
     volumes:
-      - "./downloads:/app/downloads"
+      - "/vol1/1000/media/素材/tg:/app/downloads/"
+
+      # Rclone
+      - "$HOME/.config/rclone/:$HOME/.config/rclone/"
+
       - "./config.yaml:/app/config.yaml"
-      - "./accounts.yaml:/app/accounts.yaml"
       - "./data.yaml:/app/data.yaml"
-      - "./configs:/app/configs"
-      - "./sessions:/app/sessions"
-      - "./temp:/app/temp"
-      - "./log:/app/log"
+      - "./log/:/app/log/"
+      - "./sessions/:/app/sessions/"
+      - "./temp/:/app/temp/"
+      - "./configs/:/app/configs/"
+      - "./accounts.yaml:/app/accounts.yaml"
     logging:
       driver: "json-file"
       options:
@@ -24,4 +31,10 @@ services:
         limits:
           cpus: "1.0"
           memory: "512M"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,sys,urllib.request; resp=urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=3); data=json.load(resp); sys.exit(0 if resp.status == 200 and data.get('ok') else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     restart: "unless-stopped"

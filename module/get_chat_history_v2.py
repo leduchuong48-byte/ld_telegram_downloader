@@ -1,6 +1,6 @@
 """Rewrite pyrogram.get_chat_history with timeout + retry + resume.
 
-Based on the original get_chat_history_v2 implementation with added resilience:
+Based on tangyoha's original get_chat_history_v2 but with added resilience:
 - Each GetHistory chunk is wrapped in asyncio.wait_for for timeout protection
 - Retry logic with exponential backoff on transient failures
 - Cached peer resolution to avoid redundant resolve_peer calls
